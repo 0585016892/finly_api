@@ -9,13 +9,6 @@ const qs = require("qs");
 const crypto = require("crypto");
 const moment = require("moment");
 require("dotenv").config();
-const util = require("util");
-
-// Biến promisify các hàm db.query và db.beginTransaction, commit, rollback
-const query = util.promisify(db.query).bind(db);
-const beginTransaction = util.promisify(db.beginTransaction).bind(db);
-const commit = util.promisify(db.commit).bind(db);
-const rollback = util.promisify(db.rollback).bind(db);
 const generateRandomPassword = () => {
   const chars =
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -126,7 +119,7 @@ Finly Team
   await transporter.sendMail(merchantMail);
 }
 
-router.post("/add", async (req, res) => {
+router.post("/add", (req, res) => {
   const {
     customer_name,
     customer_phone,
@@ -142,168 +135,186 @@ router.post("/add", async (req, res) => {
     items,
   } = req.body;
 
-  try {
-    // Kiểm tra email khách hàng
-    const emailResult = await query("SELECT * FROM customers WHERE email = ?", [
-      customer_email,
-    ]);
-
-    let customerId;
-    let plainPassword = null;
-
-    if (emailResult.length > 0) {
-      // Cập nhật khách hàng đã có
-      await query(
-        "UPDATE customers SET full_name = ?, phone = ?, address = ?, status = ? WHERE email = ?",
-        [customer_name, customer_phone, address, "active", customer_email]
-      );
-      customerId = emailResult[0].id;
-    } else {
-      // Thêm khách hàng mới
-      plainPassword = generateRandomPassword();
-      const hashedPassword = bcrypt.hashSync(plainPassword, 10);
-      const insertResult = await query(
-        "INSERT INTO customers (full_name, phone, email, address, status, password) VALUES (?, ?, ?, ?, ?, ?)",
-        [
-          customer_name,
-          customer_phone,
-          customer_email,
-          address,
-          "active",
-          hashedPassword,
-        ]
-      );
-      customerId = insertResult.insertId;
-    }
-
-    // Bắt đầu transaction
-    await beginTransaction();
-
-    // Thêm đơn hàng
-    const orderResult = await query(
-      `INSERT INTO orders (customer_name, customer_phone, customer_email, address, note,
-        total, discount, shipping, final_total, payment_method, status, customer_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        customer_name,
-        customer_phone,
-        customer_email,
-        address,
-        note,
-        total,
-        discount,
-        shipping,
-        final_total,
-        payment_method,
-        status,
-        customerId,
-      ]
-    );
-
-    const orderId = orderResult.insertId;
-
-    // Thêm từng item + cập nhật tồn kho
-    for (const item of items) {
-      const { product_id, quantity, price, size, color } = item;
-
-      await query(
-        `INSERT INTO order_items (order_id, product_id, quantity, price, size, color)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        [orderId, product_id, quantity, price, size, color]
-      );
-
-      const stockResult = await query(
-        `UPDATE sanpham SET quantity = quantity - ? WHERE id = ? AND quantity >= ?`,
-        [quantity, product_id, quantity]
-      );
-
-      if (stockResult.affectedRows === 0) {
-        // Hủy transaction nếu không đủ hàng
-        await rollback();
-        return res.status(400).json({
-          success: false,
-          message: `Sản phẩm ID ${product_id} không đủ hàng tồn`,
-        });
-      }
-    }
-
-    // Commit transaction
-    await commit();
-
-    // Gửi notify realtime (bọc try/catch để tránh lỗi)
-    try {
-      notifyNewOrder({
-        id: orderId,
-        customer: customer_name,
-        total: final_total,
+  const checkEmailSql = "SELECT * FROM customers WHERE email = ?";
+  db.query(checkEmailSql, [customer_email], (emailErr, emailResult) => {
+    if (emailErr) {
+      return res.status(500).json({
+        success: false,
+        message: "Lỗi kiểm tra email",
+        error: emailErr.message,
       });
-    } catch (notifyErr) {
-      console.error("Lỗi notifyNewOrder:", notifyErr);
     }
 
-    // Tạo transporter mail
-    const transporter = nodemailer.createTransport({
-      host: process.env.EMAIL_HOST,
-      port: Number(process.env.EMAIL_PORT),
-      secure: process.env.EMAIL_SECURE === "true",
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-      tls: { rejectUnauthorized: false },
-    });
+    const processOrder = (customerId, plainPassword = null) => {
+      db.beginTransaction((beginErr) => {
+        if (beginErr) {
+          return res.status(500).json({
+            success: false,
+            message: "Lỗi khi bắt đầu transaction",
+            error: beginErr.message,
+          });
+        }
 
-    const itemsList = items
-      .map(
-        (i) =>
-          `- ${i.name} (Size: ${i.size}, Màu: ${i.color})\n` +
-          `  Số lượng: ${i.quantity}\n` +
-          `  Đơn giá: ${Number(i.price).toLocaleString("vi-VN")}đ\n` +
-          `  Thành tiền: ${(i.price * i.quantity).toLocaleString("vi-VN")}đ`
-      )
-      .join("\n\n");
+        const orderSql = `
+          INSERT INTO orders (customer_name, customer_phone, customer_email, address, note,
+            total, discount, shipping, final_total, payment_method, status, customer_id,coupon_id)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `;
 
-    const customerMail = {
-      from: `"Finly" <${process.env.EMAIL_USER}>`,
-      to: customer_email,
-      subject: `Xác nhận đơn hàng #${orderId}`,
-      text: `
-Xin chào ${customer_name},
+        db.query(
+          orderSql,
+          [
+            customer_name,
+            customer_phone,
+            customer_email,
+            address,
+            note,
+            total,
+            discount,
+            shipping,
+            final_total,
+            payment_method,
+            status,
+            customerId,
+            coupon_id, // thêm ở đây
+          ],
+          (orderErr, orderResult) => {
+            if (orderErr) {
+              return db.rollback(() =>
+                res.status(500).json({
+                  success: false,
+                  message: "Lỗi lưu đơn hàng",
+                  error: orderErr.message,
+                })
+              );
+            }
 
-Cảm ơn bạn đã đặt hàng tại Finly. Đây là thông tin đơn hàng của bạn:
+            const orderId = orderResult.insertId;
+            const insertItem = (item) =>
+              new Promise((resolve, reject) => {
+                const { product_id, quantity, price, size, color } = item;
+                const insertSql = `
+      INSERT INTO order_items (order_id, product_id, quantity, price, size, color)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `;
+                db.query(
+                  insertSql,
+                  [orderId, product_id, quantity, price, size, color],
+                  (itemErr) => {
+                    if (itemErr) return reject(itemErr);
 
-- Mã đơn hàng: #${orderId}
-- Họ tên: ${customer_name}
-- Điện thoại: ${customer_phone}
-- Địa chỉ: ${address}
-- Ghi chú: ${note}
-- Phương thức thanh toán: ${payment_method}
-- Tổng tiền: ${total.toLocaleString("vi-VN")} đ
-- Giảm giá: ${discount.toLocaleString("vi-VN")} đ
-- Phí vận chuyển: ${shipping.toLocaleString("vi-VN")} đ
-- Tổng thanh toán: ${final_total.toLocaleString("vi-VN")} đ
+                    // ✅ Trừ số lượng sản phẩm trong bảng `sanpham`
+                    const updateStockSql = `
+                        UPDATE sanpham
+                        SET quantity = quantity - ?
+                        WHERE id = ? AND quantity >= ?
+                      `;
+                    db.query(
+                      updateStockSql,
+                      [quantity, product_id, quantity],
+                      (stockErr, stockResult) => {
+                        if (stockErr) return reject(stockErr);
 
-Chi tiết sản phẩm:
+                        if (stockResult.affectedRows === 0) {
+                          return reject(
+                            new Error(
+                              `Sản phẩm ID ${product_id} không đủ hàng tồn`
+                            )
+                          );
+                        }
 
-${itemsList}
-${
-  plainPassword
-    ? `\n\nTài khoản của bạn đã được tạo tự động:\nEmail: ${customer_email}\nMật khẩu: ${plainPassword}\nHãy đăng nhập và đổi mật khẩu sau lần đầu tiên.`
-    : ""
-}
+                        resolve(); // Thành công cả 2 bước
+                      }
+                    );
+                  }
+                );
+              });
 
-Cảm ơn bạn đã mua sắm tại Finly. Chúng tôi sẽ xử lý đơn hàng của bạn ngay lập tức và thông báo khi vận chuyển.
+            Promise.all(items.map(insertItem))
+              .then(() => {
+                db.commit((commitErr) => {
+                  if (commitErr) {
+                    return db.rollback(() =>
+                      res.status(500).json({
+                        success: false,
+                        message: "Lỗi khi commit",
+                        error: commitErr.message,
+                      })
+                    );
+                  }
+                  // --- Gửi thông báo realtime đơn hàng mới ---
+                  notifyNewOrder({
+                    id: orderId,
+                    customer: customer_name,
+                    total: final_total,
+                  });
+                  const transporter = nodemailer.createTransport({
+                    host: process.env.EMAIL_HOST,
+                    port: Number(process.env.EMAIL_PORT),
+                    secure: process.env.EMAIL_SECURE === "true",
+                    auth: {
+                      user: process.env.EMAIL_USER,
+                      pass: process.env.EMAIL_PASS,
+                    },
+                    tls: { rejectUnauthorized: false },
+                  });
 
-Trân trọng,
-Finly Team
-`.trim(),
-    };
+                  const itemsList = items
+                    .map(
+                      (i) =>
+                        `- ${i.name} (Size: ${i.size}, Màu: ${i.color})\n` +
+                        `  Số lượng: ${i.quantity}\n` +
+                        `  Đơn giá: ${Number(i.price).toLocaleString(
+                          "vi-VN"
+                        )}đ\n` +
+                        `  Thành tiền: ${(i.price * i.quantity).toLocaleString(
+                          "vi-VN"
+                        )}đ`
+                    )
+                    .join("\n\n");
 
-    const merchantMail = {
-      from: `"Finly" <${process.env.EMAIL_USER}>`,
-      to: "tranhung6829@gmail.com",
-      subject: `[MỚI] Đơn hàng #${orderId} từ ${customer_name}`,
-      text: `
+                  const customerMail = {
+                    from: `"Finly" <${process.env.EMAIL_USER}>`,
+                    to: customer_email,
+                    subject: `Xác nhận đơn hàng #${orderId}`,
+                    text: `
+                        Xin chào ${customer_name},
+
+                        Cảm ơn bạn đã đặt hàng tại Finly. Đây là thông tin đơn hàng của bạn:
+
+                        - Mã đơn hàng: #${orderId}
+                        - Họ tên: ${customer_name}
+                        - Điện thoại: ${customer_phone}
+                        - Địa chỉ: ${address}
+                        - Ghi chú: ${note}
+                        - Phương thức thanh toán: ${payment_method}
+                        - Tổng tiền: ${total.toLocaleString("vi-VN")} đ
+                        - Giảm giá: ${discount.toLocaleString("vi-VN")} đ
+                        - Phí vận chuyển: ${shipping.toLocaleString("vi-VN")} đ
+                        - Tổng thanh toán: ${final_total.toLocaleString(
+                          "vi-VN"
+                        )} đ
+
+                        Chi tiết sản phẩm:
+
+                        ${itemsList}
+                          ${
+                            plainPassword
+                              ? `\n\nTài khoản của bạn đã được tạo tự động:\nEmail: ${customer_email}\nMật khẩu: ${plainPassword}\nHãy đăng nhập và đổi mật khẩu sau lần đầu tiên.`
+                              : ""
+                          }
+                        Cảm ơn bạn đã mua sắm tại Finly. Chúng tôi sẽ xử lý đơn hàng của bạn ngay lập tức và thông báo khi vận chuyển.
+
+                        Trân trọng,
+                        Finly Team
+                    `.trim(),
+                  };
+
+                  const merchantMail = {
+                    from: `"Finly" <${process.env.EMAIL_USER}>`,
+                    to: "tranhung6829@gmail.com",
+                    subject: `[MỚI] Đơn hàng #${orderId} từ ${customer_name}`,
+                    text: `
 Bạn có một đơn hàng mới:
 
 - Mã đơn hàng: #${orderId}
@@ -324,32 +335,81 @@ ${itemsList}
 Xử lý đơn hàng ngay nhé.
 
 Finly Team
-`.trim(),
+                    `.trim(),
+                  };
+
+                  transporter.sendMail(customerMail, () => {
+                    transporter.sendMail(merchantMail, () => {
+                      res.status(201).json({
+                        success: true,
+                        message: "Đơn hàng đã tạo và email đã được gửi.",
+                        orderId,
+                      });
+                    });
+                  });
+                });
+              })
+              .catch((itemErr) => {
+                db.rollback(() => {
+                  res.status(500).json({
+                    success: false,
+                    message: "Lỗi lưu chi tiết sản phẩm",
+                    error: itemErr.message,
+                  });
+                });
+              });
+          }
+        );
+      });
     };
 
-    // Gửi mail khách, sau đó mail quản lý
-    await transporter.sendMail(customerMail);
-    await transporter.sendMail(merchantMail);
-
-    // Trả về kết quả thành công
-    res.status(201).json({
-      success: true,
-      message: "Đơn hàng đã tạo và email đã được gửi.",
-      orderId,
-    });
-  } catch (error) {
-    console.error("Lỗi /api/orders/add:", error);
-    try {
-      await rollback();
-    } catch (rbErr) {
-      console.error("Lỗi rollback:", rbErr);
+    if (emailResult.length > 0) {
+      const updateSql = `
+        UPDATE customers SET full_name = ?, phone = ?, address = ?, status = ? WHERE email = ?
+      `;
+      db.query(
+        updateSql,
+        [customer_name, customer_phone, address, "active", customer_email],
+        (updateErr) => {
+          if (updateErr) {
+            return res.status(500).json({
+              success: false,
+              message: "Lỗi cập nhật khách hàng",
+              error: updateErr.message,
+            });
+          }
+          processOrder(emailResult[0].id, null);
+        }
+      );
+    } else {
+      const plainPassword = generateRandomPassword();
+      const hashedPassword = bcrypt.hashSync(plainPassword, 10);
+      const insertSql = `
+        INSERT INTO customers (full_name, phone, email, address, status,password) VALUES (?, ?, ?, ?, ?, ?)
+      `;
+      db.query(
+        insertSql,
+        [
+          customer_name,
+          customer_phone,
+          customer_email,
+          address,
+          "active",
+          hashedPassword,
+        ],
+        (custErr, custResult) => {
+          if (custErr) {
+            return res.status(500).json({
+              success: false,
+              message: "Lỗi thêm khách hàng",
+              error: custErr.message,
+            });
+          }
+          processOrder(custResult.insertId, plainPassword);
+        }
+      );
     }
-    res.status(500).json({
-      success: false,
-      message: "Lỗi xử lý đơn hàng",
-      error: error.message,
-    });
-  }
+  });
 });
 
 // Lấy danh sách đơn hàng
