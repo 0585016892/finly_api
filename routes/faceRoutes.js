@@ -32,7 +32,11 @@ router.post("/attendance", upload.single("img_checkin"), (req, res) => {
   if (!user_id || !req.file) {
     return res.status(400).json({ error: "Thiếu dữ liệu (user_id hoặc ảnh)" });
   }
+  if (!file) {
+    console.log("thiết ảnh");
 
+    return res.status(400).json({ message: "Không có ảnh được upload" });
+  }
   const img_checkin = `/uploads/checkin/${req.savedFilename}`;
 
   db.query(
