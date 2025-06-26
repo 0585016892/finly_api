@@ -4,13 +4,13 @@ dotenv.config();
 
 const db = mysql.createConnection({
   host: process.env.MYSQLHOST,
+  port: process.env.MYSQLPORT,
   user: process.env.MYSQLUSER,
   password: process.env.MYSQLPASSWORD,
   database: process.env.MYSQLDATABASE,
-  port: process.env.MYSQLPORT,
-  connectTimeout: 10000, // thêm timeout 10 giây
   ssl: {
-    rejectUnauthorized: true, // một số dịch vụ yêu cầu SSL
+    // Chấp nhận chứng chỉ tự ký (KHÔNG an toàn cho production thật sự)
+    rejectUnauthorized: false,
   },
 });
 

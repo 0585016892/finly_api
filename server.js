@@ -68,12 +68,15 @@ app.use("/api/chamcong", chamcongRoutes);
 app.use("/api/size", sizeRoutes);
 app.use("/api/colors", colorRoutes);
 app.use("/api/face", faceRoutes);
+
+app.get("/api/test", (req, res) => {
+  res.send("✅ Backend hoạt động");
+});
 // Sử dụng socket chat
 chatSocket(io);
 initSocket(io);
 initAttendanceSocket(io);
 // Khởi động server
-console.log("✅ VNP_RETURN_URL:", process.env.VNP_RETURN_URL);
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
   console.log(`🚀 Server + Socket.IO đang chạy tại http://localhost:${PORT}`);
