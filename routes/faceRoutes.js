@@ -35,7 +35,7 @@ router.post("/attendance", upload.single("img_checkin"), (req, res) => {
   }
 
   // ✅ req.savedFilename là custom, nên phải đảm bảo middleware lưu tên này
-  const img_checkin = `/uploads/checkin/${req.savedFilename}`;
+  const img_checkin = `/uploads/checkin/${req.file.filename}`;
 
   db.query(
     "SELECT * FROM attendances WHERE user_id = ? AND work_date = ?",
