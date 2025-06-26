@@ -8,6 +8,10 @@ const db = mysql.createConnection({
   password: process.env.MYSQLPASSWORD,
   database: process.env.MYSQLDATABASE,
   port: process.env.MYSQLPORT,
+  connectTimeout: 10000, // thêm timeout 10 giây
+  ssl: {
+    rejectUnauthorized: true, // một số dịch vụ yêu cầu SSL
+  },
 });
 
 db.connect((err) => {
