@@ -176,7 +176,7 @@ router.post("/add", (req, res) => {
             payment_method,
             status,
             customerId,
-            coupon_id, // thêm ở đây
+            (coupon_id = null), // thêm ở đây
           ],
           (orderErr, orderResult) => {
             if (orderErr) {
