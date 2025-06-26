@@ -26,17 +26,15 @@ router.post("/attendance", upload.single("img_checkin"), (req, res) => {
 
   const hour = now.getHours();
   const minute = now.getMinutes();
-  const vnOffset = 7 * 60 * 60 * 1000; // +07:00
+  const vnOffset = 7 * 60 * 60 * 1000;
   const vnNow = new Date(now.getTime() + vnOffset);
   const today = vnNow.toISOString().split("T")[0];
+
   if (!user_id || !req.file) {
     return res.status(400).json({ error: "Thiếu dữ liệu (user_id hoặc ảnh)" });
   }
-  if (!file) {
-    console.log("thiết ảnh");
 
-    return res.status(400).json({ message: "Không có ảnh được upload" });
-  }
+  // ✅ req.savedFilename là custom, nên phải đảm bảo middleware lưu tên này
   const img_checkin = `/uploads/checkin/${req.savedFilename}`;
 
   db.query(
@@ -46,13 +44,11 @@ router.post("/attendance", upload.single("img_checkin"), (req, res) => {
       if (err) return res.status(500).json({ error: "Lỗi truy vấn DB" });
 
       if (rows.length === 0) {
-        // Xác định trạng thái đi làm
         let status = "on-time";
         if (hour > 8 || (hour === 8 && minute > 30)) {
           status = "late";
         }
 
-        // Thêm mới bản ghi
         db.query(
           "INSERT INTO attendances SET ?",
           {
@@ -65,12 +61,13 @@ router.post("/attendance", upload.single("img_checkin"), (req, res) => {
           (err2) => {
             if (err2)
               return res.status(500).json({ error: "Không thể chấm công" });
-            // 🔔 Gửi socket cho đúng nhân viên
+
             emitAttendanceToUser(user_id, {
               time: now,
               img: img_checkin,
               status: "checked-in",
             });
+
             return res.json({
               status: "checked-in",
               time: now,
@@ -88,6 +85,7 @@ router.post("/attendance", upload.single("img_checkin"), (req, res) => {
     }
   );
 });
+
 // === CHECK-OUT ===
 router.post("/checkout", upload.single("img_checkout"), (req, res) => {
   const user_id = req.body.user_id;
