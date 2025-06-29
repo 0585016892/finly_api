@@ -19,7 +19,7 @@ const mysql = require("mysql2");
 const dotenv = require("dotenv");
 dotenv.config();
 
-const db = mysql.createConnection({
+const db = mysql.createPool({
   host: process.env.MYSQLHOST,
   port: process.env.MYSQLPORT,
   user: process.env.MYSQLUSER,
@@ -29,6 +29,9 @@ const db = mysql.createConnection({
     // Chấp nhận chứng chỉ tự ký (KHÔNG an toàn cho production thật sự)
     rejectUnauthorized: false,
   },
+  waitForConnections: true,
+  connectionLimit: 10, // số lượng connection tối đa
+  queueLimit: 0, // không giới hạn số lượng request đang chờ
 });
 
 db.connect((err) => {
@@ -39,4 +42,4 @@ db.connect((err) => {
   console.log("✅ Đã kết nối MySQL");
 });
 
-module.exports = db;
+module.exports = pool;
