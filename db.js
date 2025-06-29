@@ -34,12 +34,6 @@ const db = mysql.createPool({
   queueLimit: 0, // không giới hạn số lượng request đang chờ
 });
 
-db.connect((err) => {
-  if (err) {
-    console.error("❌ Kết nối MySQL thất bại:", err.message);
-    return;
-  }
-  console.log("✅ Đã kết nối MySQL");
-});
+console.log("✅ MySQL pool đã sẵn sàng");
 
 module.exports = pool;
