@@ -30,7 +30,7 @@ router.get("/show", async (req, res) => {
     }
 
     query += " ORDER BY id DESC";
-    const [slides] = await db.promise().query(query, params);
+    const slides = await query(query, params);
 
     res.json({ slides });
   } catch (err) {
@@ -59,12 +59,14 @@ router.get("/", async (req, res) => {
     }
 
     const countQuery = `SELECT COUNT(*) AS total ${baseQuery}`;
-    const [[{ total }]] = await db.promise().query(countQuery, params);
+    const [[{ total }]] = await db.query(countQuery, params);
 
     const dataQuery = `SELECT * ${baseQuery} ORDER BY id DESC LIMIT ? OFFSET ?`;
-    const [slides] = await db
-      .promise()
-      .query(dataQuery, [...params, parseInt(limit), offset]);
+    const slides = await db.query(dataQuery, [
+      ...params,
+      parseInt(limit),
+      offset,
+    ]);
 
     res.json({
       slides,
@@ -156,7 +158,7 @@ router.put("/update/:id", upload.single("image"), async (req, res) => {
     query += " WHERE id = ?";
     values.push(id);
 
-    const [result] = await db.promise().query(query, values);
+    const [result] = await db.query(query, values);
     if (result.affectedRows === 0)
       return res.status(404).json({ message: "Slide not found" });
 
@@ -218,11 +220,9 @@ router.patch("/status/:id", async (req, res) => {
   const { status } = req.body;
 
   if (!["active", "inactive"].includes(status)) {
-    return res
-      .status(400)
-      .json({
-        message: "Invalid status value. Must be 'active' or 'inactive'.",
-      });
+    return res.status(400).json({
+      message: "Invalid status value. Must be 'active' or 'inactive'.",
+    });
   }
 
   try {

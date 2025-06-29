@@ -108,43 +108,40 @@ router.post("/add", async (req, res) => {
       coupon_id = null,
     } = req.body;
 
-    const [emailResult] = await db
-      .promise()
-      .query("SELECT * FROM customers WHERE email = ?", [customer_email]);
+    const [emailResult] = await db.query(
+      "SELECT * FROM customers WHERE email = ?",
+      [customer_email]
+    );
 
     let customerId,
       plainPassword = null;
 
     if (emailResult.length > 0) {
-      await db
-        .promise()
-        .query(
-          "UPDATE customers SET full_name = ?, phone = ?, address = ?, status = ? WHERE email = ?",
-          [customer_name, customer_phone, address, "active", customer_email]
-        );
+      await db.query(
+        "UPDATE customers SET full_name = ?, phone = ?, address = ?, status = ? WHERE email = ?",
+        [customer_name, customer_phone, address, "active", customer_email]
+      );
       customerId = emailResult[0].id;
     } else {
       plainPassword = generateRandomPassword();
       const hashedPassword = bcrypt.hashSync(plainPassword, 10);
-      const [insertResult] = await db
-        .promise()
-        .query(
-          "INSERT INTO customers (full_name, phone, email, address, status, password) VALUES (?, ?, ?, ?, ?, ?)",
-          [
-            customer_name,
-            customer_phone,
-            customer_email,
-            address,
-            "active",
-            hashedPassword,
-          ]
-        );
+      const [insertResult] = await db.query(
+        "INSERT INTO customers (full_name, phone, email, address, status, password) VALUES (?, ?, ?, ?, ?, ?)",
+        [
+          customer_name,
+          customer_phone,
+          customer_email,
+          address,
+          "active",
+          hashedPassword,
+        ]
+      );
       customerId = insertResult.insertId;
     }
 
-    await db.promise().beginTransaction();
+    await db.beginTransaction();
 
-    const [orderResult] = await db.promise().query(
+    const [orderResult] = await db.query(
       `INSERT INTO orders (customer_name, customer_phone, customer_email, address, note, total, discount, shipping, final_total, payment_method, status, customer_id, coupon_id)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
@@ -168,23 +165,19 @@ router.post("/add", async (req, res) => {
 
     for (const item of items) {
       const { product_id, quantity, price, size, color } = item;
-      await db
-        .promise()
-        .query(
-          "INSERT INTO order_items (order_id, product_id, quantity, price, size, color) VALUES (?, ?, ?, ?, ?, ?)",
-          [orderId, product_id, quantity, price, size, color]
-        );
-      const [updateStock] = await db
-        .promise()
-        .query(
-          "UPDATE sanpham SET quantity = quantity - ? WHERE id = ? AND quantity >= ?",
-          [quantity, product_id, quantity]
-        );
+      await db.query(
+        "INSERT INTO order_items (order_id, product_id, quantity, price, size, color) VALUES (?, ?, ?, ?, ?, ?)",
+        [orderId, product_id, quantity, price, size, color]
+      );
+      const [updateStock] = await db.query(
+        "UPDATE sanpham SET quantity = quantity - ? WHERE id = ? AND quantity >= ?",
+        [quantity, product_id, quantity]
+      );
       if (updateStock.affectedRows === 0)
         throw new Error(`Sản phẩm ID ${product_id} không đủ hàng tồn`);
     }
 
-    await db.promise().commit();
+    await db.commit();
 
     notifyNewOrder({
       id: orderId,
@@ -214,7 +207,7 @@ router.post("/add", async (req, res) => {
       orderId,
     });
   } catch (err) {
-    await db.promise().rollback();
+    await db.rollback();
     res.status(500).json({
       success: false,
       message: "Lỗi xử lý đơn hàng",
@@ -246,14 +239,15 @@ router.get("/", async (req, res) => {
       params.push(status);
     }
 
-    const [countResult] = await db
-      .promise()
-      .query(`SELECT COUNT(*) AS total FROM orders o ${whereClause}`, params);
+    const [countResult] = await db.query(
+      `SELECT COUNT(*) AS total FROM orders o ${whereClause}`,
+      params
+    );
 
     const totalOrders = countResult[0].total;
     const totalPages = Math.ceil(totalOrders / limit);
 
-    const [orders] = await db.promise().query(
+    const [orders] = await db.query(
       `SELECT 
         o.id AS order_id,
         o.customer_name,
@@ -287,7 +281,7 @@ router.get("/", async (req, res) => {
     const orderIds = orders.map((o) => o.order_id);
     const placeholders = orderIds.map(() => "?").join(", ");
 
-    const [items] = await db.promise().query(
+    const [items] = await db.query(
       `SELECT 
         oi.order_id,
         oi.product_id,
@@ -349,9 +343,9 @@ router.delete("/delete/:id", async (req, res) => {
   }
 
   try {
-    const [result] = await db
-      .promise()
-      .query("DELETE FROM orders WHERE id = ?", [orderId]);
+    const [result] = await db.query("DELETE FROM orders WHERE id = ?", [
+      orderId,
+    ]);
 
     if (result.affectedRows === 0) {
       return res
@@ -377,9 +371,10 @@ router.put("/:id/status", async (req, res) => {
   const { status } = req.body;
 
   try {
-    const [result] = await db
-      .promise()
-      .query("UPDATE orders SET status = ? WHERE id = ?", [status, orderId]);
+    const [result] = await db.query(
+      "UPDATE orders SET status = ? WHERE id = ?",
+      [status, orderId]
+    );
 
     return res.json({
       success: true,
@@ -399,7 +394,7 @@ router.get("/acv/:orderId", async (req, res) => {
 
   try {
     // Truy vấn thông tin đơn hàng
-    const [orderResult] = await db.promise().query(
+    const [orderResult] = await db.query(
       `
       SELECT 
         o.id AS order_id,
@@ -431,7 +426,7 @@ router.get("/acv/:orderId", async (req, res) => {
     const order = orderResult[0];
 
     // Truy vấn chi tiết sản phẩm trong đơn hàng
-    const [itemsResult] = await db.promise().query(
+    const [itemsResult] = await db.query(
       `
       SELECT 
         oi.product_id,
@@ -491,7 +486,7 @@ router.post("/create-vnpay", async (req, res) => {
 
   try {
     // 👉 Lưu đơn hàng trước
-    const [orderRes] = await db.promise().query(
+    const [orderRes] = await db.query(
       `INSERT INTO orders (customer_name, customer_phone, customer_email, address, note, total, discount, shipping, final_total, payment_method, status, coupon_id)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'vnpay', 'pending', ?)`,
       [
@@ -511,7 +506,7 @@ router.post("/create-vnpay", async (req, res) => {
     const orderId = orderRes.insertId;
 
     for (const item of items) {
-      await db.promise().query(
+      await db.query(
         `INSERT INTO order_items (order_id, product_id, quantity, price, size, color)
          VALUES (?, ?, ?, ?, ?, ?)`,
         [
@@ -524,21 +519,17 @@ router.post("/create-vnpay", async (req, res) => {
         ]
       );
 
-      await db
-        .promise()
-        .query(
-          `UPDATE sanpham SET quantity = quantity - ? WHERE id = ? AND quantity >= ?`,
-          [item.quantity, item.product_id, item.quantity]
-        );
+      await db.query(
+        `UPDATE sanpham SET quantity = quantity - ? WHERE id = ? AND quantity >= ?`,
+        [item.quantity, item.product_id, item.quantity]
+      );
     }
 
     if (coupon_id) {
-      await db
-        .promise()
-        .query(
-          `UPDATE coupons SET quantity = quantity - 1 WHERE id = ? AND quantity > 0`,
-          [coupon_id]
-        );
+      await db.query(
+        `UPDATE coupons SET quantity = quantity - 1 WHERE id = ? AND quantity > 0`,
+        [coupon_id]
+      );
     }
 
     // 👉 Cấu hình VNPAY
@@ -625,9 +616,9 @@ router.get("/vnpay-return", async (req, res) => {
 
   const orderId = vnp_Params.vnp_TxnRef;
 
-  const [orderRows] = await db
-    .promise()
-    .query("SELECT * FROM orders WHERE id = ?", [orderId]);
+  const [orderRows] = await db.query("SELECT * FROM orders WHERE id = ?", [
+    orderId,
+  ]);
 
   if (orderRows.length === 0) {
     console.log("🚫 Không tìm thấy đơn hàng với ID:", orderId);

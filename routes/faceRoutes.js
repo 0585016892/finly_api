@@ -8,9 +8,9 @@ const { emitAttendanceToUser } = require("../sockets/attendanceSocket");
 // ✅ API 1: Lấy danh sách labels từ bảng employees
 router.get("/labels", async (req, res) => {
   try {
-    const [results] = await db
-      .promise()
-      .query("SELECT id, full_name, avatar FROM employees");
+    const [results] = await db.query(
+      "SELECT id, full_name, avatar FROM employees"
+    );
 
     const labels = results.map((emp) => ({
       id: emp.id,
@@ -41,12 +41,10 @@ router.post("/attendance", upload.single("img_checkin"), async (req, res) => {
   const img_checkin = `/uploads/checkin/${req.file.filename}`;
 
   try {
-    const [rows] = await db
-      .promise()
-      .query("SELECT * FROM attendances WHERE user_id = ? AND work_date = ?", [
-        user_id,
-        today,
-      ]);
+    const [rows] = await db.query(
+      "SELECT * FROM attendances WHERE user_id = ? AND work_date = ?",
+      [user_id, today]
+    );
 
     if (rows.length === 0) {
       let status = "on-time";
@@ -98,12 +96,10 @@ router.post("/checkout", upload.single("img_checkout"), async (req, res) => {
   const img_checkout = `/uploads/checkout/${req.file.filename}`;
 
   try {
-    const [rows] = await db
-      .promise()
-      .query("SELECT * FROM attendances WHERE user_id = ? AND work_date = ?", [
-        user_id,
-        today,
-      ]);
+    const [rows] = await db.query(
+      "SELECT * FROM attendances WHERE user_id = ? AND work_date = ?",
+      [user_id, today]
+    );
 
     if (rows.length === 0) {
       return res.status(400).json({ error: "Chưa check-in hôm nay" });
@@ -117,12 +113,10 @@ router.post("/checkout", upload.single("img_checkout"), async (req, res) => {
       });
     }
 
-    await db
-      .promise()
-      .query(
-        "UPDATE attendances SET check_out_time = ?, img_checkout = ? WHERE id = ?",
-        [now, img_checkout, row.id]
-      );
+    await db.query(
+      "UPDATE attendances SET check_out_time = ?, img_checkout = ? WHERE id = ?",
+      [now, img_checkout, row.id]
+    );
 
     return res.json({ status: "checked-out", time: now });
   } catch (err) {

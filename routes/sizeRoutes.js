@@ -9,12 +9,11 @@ router.get("/", async (req, res) => {
   const offset = (page - 1) * limit;
 
   try {
-    const [[{ total }]] = await db
-      .promise()
-      .query("SELECT COUNT(*) AS total FROM sizes");
-    const [sizes] = await db
-      .promise()
-      .query("SELECT * FROM sizes LIMIT ? OFFSET ?", [limit, offset]);
+    const [[{ total }]] = await db.query("SELECT COUNT(*) AS total FROM sizes");
+    const [sizes] = await db.query("SELECT * FROM sizes LIMIT ? OFFSET ?", [
+      limit,
+      offset,
+    ]);
 
     res.json({
       data: sizes,
@@ -31,7 +30,7 @@ router.get("/", async (req, res) => {
 // 📌 GET /api/sizes/all => Lấy toàn bộ size
 router.get("/all", async (req, res) => {
   try {
-    const [results] = await db.promise().query("SELECT * FROM sizes");
+    const [results] = await db.query("SELECT * FROM sizes");
     res.json(results);
   } catch (err) {
     console.error("Lỗi truy vấn tất cả size:", err);
@@ -48,9 +47,10 @@ router.post("/", async (req, res) => {
   }
 
   try {
-    const [result] = await db
-      .promise()
-      .query("INSERT INTO sizes (name, active) VALUES (?, ?)", [name, active]);
+    const [result] = await db.query(
+      "INSERT INTO sizes (name, active) VALUES (?, ?)",
+      [name, active]
+    );
     res.json({ message: "Thêm size thành công", id: result.insertId });
   } catch (err) {
     console.error("Lỗi thêm size:", err);
@@ -68,13 +68,10 @@ router.put("/:id", async (req, res) => {
   }
 
   try {
-    const [result] = await db
-      .promise()
-      .query("UPDATE sizes SET name = ?, active = ? WHERE id = ?", [
-        name,
-        active,
-        id,
-      ]);
+    const [result] = await db.query(
+      "UPDATE sizes SET name = ?, active = ? WHERE id = ?",
+      [name, active, id]
+    );
 
     if (result.affectedRows === 0) {
       return res.status(404).json({ error: "Không tìm thấy size" });
@@ -92,9 +89,7 @@ router.delete("/:id", async (req, res) => {
   const { id } = req.params;
 
   try {
-    const [result] = await db
-      .promise()
-      .query("DELETE FROM sizes WHERE id = ?", [id]);
+    const [result] = await db.query("DELETE FROM sizes WHERE id = ?", [id]);
 
     if (result.affectedRows === 0) {
       return res.status(404).json({ error: "Không tìm thấy size" });

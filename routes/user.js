@@ -26,12 +26,10 @@ function authenticate(req, res, next) {
 // 1. Lấy thông tin người dùng
 router.get("/me", authenticate, async (req, res) => {
   try {
-    const [results] = await db
-      .promise()
-      .query(
-        `SELECT id, full_name, email, phone, address FROM customers WHERE id = ?`,
-        [req.user.id]
-      );
+    const [results] = await db.query(
+      `SELECT id, full_name, email, phone, address FROM customers WHERE id = ?`,
+      [req.user.id]
+    );
 
     if (results.length === 0)
       return res.status(404).json({ message: "Không tìm thấy người dùng" });
@@ -54,22 +52,18 @@ router.get("/orders", authenticate, async (req, res) => {
   const statusParam = status && allowed.includes(status) ? [status] : [];
 
   try {
-    const [orders] = await db
-      .promise()
-      .query(
-        `SELECT id, final_total, status, created_at, shipping FROM orders WHERE customer_email = ? ${condition} ORDER BY created_at DESC`,
-        [email, ...statusParam]
-      );
+    const [orders] = await db.query(
+      `SELECT id, final_total, status, created_at, shipping FROM orders WHERE customer_email = ? ${condition} ORDER BY created_at DESC`,
+      [email, ...statusParam]
+    );
 
     if (orders.length === 0) return res.json([]);
 
     const ids = orders.map((o) => o.id);
-    const [details] = await db
-      .promise()
-      .query(
-        `SELECT od.order_id, p.name, od.quantity, od.price, od.size, od.color FROM order_items od JOIN products p ON od.product_id = p.id WHERE od.order_id IN (?)`,
-        [ids]
-      );
+    const [details] = await db.query(
+      `SELECT od.order_id, p.name, od.quantity, od.price, od.size, od.color FROM order_items od JOIN products p ON od.product_id = p.id WHERE od.order_id IN (?)`,
+      [ids]
+    );
 
     const result = orders.map((order) => ({
       ...order,
@@ -85,22 +79,18 @@ router.get("/orders", authenticate, async (req, res) => {
 // 3. Chi tiết đơn hàng
 router.get("/orders/:orderId", authenticate, async (req, res) => {
   try {
-    const [orders] = await db
-      .promise()
-      .query(
-        `SELECT id, code, total_price, status, created_at, shipping FROM orders WHERE id = ? AND customer_email = ?`,
-        [req.params.orderId, req.user.email]
-      );
+    const [orders] = await db.query(
+      `SELECT id, code, total_price, status, created_at, shipping FROM orders WHERE id = ? AND customer_email = ?`,
+      [req.params.orderId, req.user.email]
+    );
 
     if (orders.length === 0)
       return res.status(404).json({ message: "Không tìm thấy đơn hàng" });
 
-    const [items] = await db
-      .promise()
-      .query(
-        `SELECT p.name, od.quantity, od.price, od.size, od.color FROM order_items od JOIN products p ON od.product_id = p.id WHERE od.order_id = ?`,
-        [req.params.orderId]
-      );
+    const [items] = await db.query(
+      `SELECT p.name, od.quantity, od.price, od.size, od.color FROM order_items od JOIN products p ON od.product_id = p.id WHERE od.order_id = ?`,
+      [req.params.orderId]
+    );
 
     res.json({ ...orders[0], items });
   } catch {
@@ -116,12 +106,10 @@ router.put("/update", authenticate, async (req, res) => {
     return res.status(400).json({ message: "Vui lòng nhập đầy đủ thông tin" });
 
   try {
-    const [result] = await db
-      .promise()
-      .query(
-        `UPDATE customers SET full_name = ?, phone = ?, address = ? WHERE id = ?`,
-        [full_name, phone, address, req.user.id]
-      );
+    const [result] = await db.query(
+      `UPDATE customers SET full_name = ?, phone = ?, address = ? WHERE id = ?`,
+      [full_name, phone, address, req.user.id]
+    );
 
     if (result.affectedRows === 0)
       return res.status(404).json({ message: "Không tìm thấy người dùng" });
@@ -140,9 +128,10 @@ router.put("/change-password", authenticate, async (req, res) => {
     return res.status(400).json({ message: "Vui lòng nhập đầy đủ thông tin" });
 
   try {
-    const [rows] = await db
-      .promise()
-      .query(`SELECT password FROM customers WHERE id = ?`, [req.user.id]);
+    const [rows] = await db.query(
+      `SELECT password FROM customers WHERE id = ?`,
+      [req.user.id]
+    );
 
     if (rows.length === 0)
       return res.status(404).json({ message: "Người dùng không tồn tại" });
@@ -152,12 +141,10 @@ router.put("/change-password", authenticate, async (req, res) => {
       return res.status(401).json({ message: "Mật khẩu cũ không đúng" });
 
     const newHashed = await bcrypt.hash(newPassword, 10);
-    await db
-      .promise()
-      .query(`UPDATE customers SET password = ? WHERE id = ?`, [
-        newHashed,
-        req.user.id,
-      ]);
+    await db.query(`UPDATE customers SET password = ? WHERE id = ?`, [
+      newHashed,
+      req.user.id,
+    ]);
 
     res.json({ message: "Đổi mật khẩu thành công" });
   } catch {

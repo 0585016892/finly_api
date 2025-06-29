@@ -10,7 +10,7 @@ router.get(
   hasPermission("view_roles"),
   async (req, res) => {
     try {
-      const [roles] = await db.promise().query("SELECT * FROM roles");
+      const [roles] = await db.query("SELECT * FROM roles");
       res.json(roles);
     } catch (err) {
       console.error("Lỗi lấy danh sách roles:", err);
@@ -26,9 +26,7 @@ router.get(
   hasPermission("view_roles"),
   async (req, res) => {
     try {
-      const [permissions] = await db
-        .promise()
-        .query("SELECT * FROM permissions");
+      const [permissions] = await db.query("SELECT * FROM permissions");
       res.json(permissions);
     } catch (err) {
       console.error("Lỗi lấy danh sách permissions:", err);
@@ -46,19 +44,17 @@ router.post(
     const { name, permissions } = req.body;
 
     try {
-      const [result] = await db
-        .promise()
-        .query("INSERT INTO roles (name) VALUES (?)", [name]);
+      const [result] = await db.query("INSERT INTO roles (name) VALUES (?)", [
+        name,
+      ]);
       const roleId = result.insertId;
 
       if (Array.isArray(permissions) && permissions.length > 0) {
         const values = permissions.map((p) => [roleId, p]);
-        await db
-          .promise()
-          .query(
-            "INSERT INTO role_permissions (role_id, permission_id) VALUES ?",
-            [values]
-          );
+        await db.query(
+          "INSERT INTO role_permissions (role_id, permission_id) VALUES ?",
+          [values]
+        );
       }
 
       res.json({ message: "Tạo vai trò thành công" });
@@ -80,24 +76,20 @@ router.put(
 
     try {
       // Cập nhật tên role
-      await db
-        .promise()
-        .query("UPDATE roles SET name = ? WHERE id = ?", [name, roleId]);
+      await db.query("UPDATE roles SET name = ? WHERE id = ?", [name, roleId]);
 
       // Xoá tất cả quyền cũ
-      await db
-        .promise()
-        .query("DELETE FROM role_permissions WHERE role_id = ?", [roleId]);
+      await db.query("DELETE FROM role_permissions WHERE role_id = ?", [
+        roleId,
+      ]);
 
       // Gán lại quyền mới
       if (Array.isArray(permissions) && permissions.length > 0) {
         const values = permissions.map((p) => [roleId, p]);
-        await db
-          .promise()
-          .query(
-            "INSERT INTO role_permissions (role_id, permission_id) VALUES ?",
-            [values]
-          );
+        await db.query(
+          "INSERT INTO role_permissions (role_id, permission_id) VALUES ?",
+          [values]
+        );
       }
 
       res.json({ message: "Cập nhật vai trò thành công" });

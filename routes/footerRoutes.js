@@ -19,11 +19,9 @@ const upload = multer({ storage: storage });
 // Lấy danh sách footer cha
 router.get("/parents", async (req, res) => {
   try {
-    const [footerP] = await db
-      .promise()
-      .query(
-        "SELECT * FROM footer_items WHERE parent_id IS NULL OR parent_id = 0"
-      );
+    const [footerP] = await db.query(
+      "SELECT * FROM footer_items WHERE parent_id IS NULL OR parent_id = 0"
+    );
     res.json({ footerP });
   } catch (err) {
     res.status(500).json({ error: "Lỗi khi lấy danh mục" });
@@ -95,9 +93,14 @@ router.post("/add", upload.none(), async (req, res) => {
   const sql = `INSERT INTO footer_items (title, label, value, type, parent_id, status) VALUES (?, ?, ?, ?, ?, ?)`;
 
   try {
-    const [result] = await db
-      .promise()
-      .query(sql, [title, label, value, type, parent_id, status]);
+    const [result] = await db.query(sql, [
+      title,
+      label,
+      value,
+      type,
+      parent_id,
+      status,
+    ]);
     res.status(201).json({
       message: "✅ Footer đã được thêm thành công!",
       category_id: result.insertId,

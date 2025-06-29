@@ -53,7 +53,7 @@ router.get("/revenue", async (req, res) => {
   try {
     let results;
     if (period === "quarter") {
-      [results] = await db.promise().query(sql, params);
+      [results] = await db.query(sql, params);
     } else {
       sql = `
         SELECT
@@ -71,7 +71,7 @@ router.get("/revenue", async (req, res) => {
         to_date || null,
         to_date || null,
       ];
-      [results] = await db.promise().query(sql, params);
+      [results] = await db.query(sql, params);
     }
 
     res.json({ data: results });
@@ -108,7 +108,7 @@ router.get("/orders", async (req, res) => {
   sql += ` GROUP BY period ORDER BY period`;
 
   try {
-    const [results] = await db.promise().query(sql, params);
+    const [results] = await db.query(sql, params);
     res.json({ data: results });
   } catch (err) {
     console.error("Error in /orders:", err);
@@ -145,9 +145,7 @@ router.get("/top-products", async (req, res) => {
   `;
 
   try {
-    const [results] = await db
-      .promise()
-      .query(sql, [from_date, to_date, limitNum]);
+    const [results] = await db.query(sql, [from_date, to_date, limitNum]);
     res.json({ data: results });
   } catch (err) {
     console.error("Error in /top-products:", err);
@@ -186,7 +184,7 @@ router.get("/customers", async (req, res) => {
   `;
 
   try {
-    const [results] = await db.promise().query(sql, [from_date, to_date]);
+    const [results] = await db.query(sql, [from_date, to_date]);
     res.json({ data: results });
   } catch (err) {
     console.error("Error in /customers:", err);
