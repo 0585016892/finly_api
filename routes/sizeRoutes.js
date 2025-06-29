@@ -3,91 +3,108 @@ const router = express.Router();
 const db = require("../db");
 
 // 📌 GET /api/sizes?page=&limit= => Lấy danh sách size có phân trang
-router.get("/", (req, res) => {
+router.get("/", async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 5;
   const offset = (page - 1) * limit;
 
-  const countQuery = "SELECT COUNT(*) AS total FROM sizes";
-  const dataQuery = "SELECT * FROM sizes LIMIT ? OFFSET ?";
+  try {
+    const [[{ total }]] = await db
+      .promise()
+      .query("SELECT COUNT(*) AS total FROM sizes");
+    const [sizes] = await db
+      .promise()
+      .query("SELECT * FROM sizes LIMIT ? OFFSET ?", [limit, offset]);
 
-  db.query(countQuery, (err, countResult) => {
-    if (err) return res.status(500).json({ error: "Lỗi đếm dữ liệu" });
-
-    const total = countResult[0].total;
-    const totalPages = Math.ceil(total / limit);
-
-    db.query(dataQuery, [limit, offset], (err, results) => {
-      if (err) return res.status(500).json({ error: "Lỗi truy vấn dữ liệu" });
-
-      res.json({
-        data: results,
-        currentPage: page,
-        totalPages,
-        total,
-      });
+    res.json({
+      data: sizes,
+      currentPage: page,
+      totalPages: Math.ceil(total / limit),
+      total,
     });
-  });
+  } catch (err) {
+    console.error("Lỗi truy vấn size:", err);
+    res.status(500).json({ error: "Lỗi server" });
+  }
 });
 
 // 📌 GET /api/sizes/all => Lấy toàn bộ size
-router.get("/all", (req, res) => {
-  db.query("SELECT * FROM sizes", (err, results) => {
-    if (err) return res.status(500).json({ error: "Lỗi truy vấn dữ liệu" });
+router.get("/all", async (req, res) => {
+  try {
+    const [results] = await db.promise().query("SELECT * FROM sizes");
     res.json(results);
-  });
+  } catch (err) {
+    console.error("Lỗi truy vấn tất cả size:", err);
+    res.status(500).json({ error: "Lỗi server" });
+  }
 });
 
 // 📌 POST /api/sizes => Thêm size mới
-router.post("/", (req, res) => {
+router.post("/", async (req, res) => {
   const { name, active } = req.body;
-  if (!name || !active)
+
+  if (!name || !active) {
     return res.status(400).json({ error: "Thiếu tên size hoặc trạng thái" });
+  }
 
-  db.query(
-    "INSERT INTO sizes (name, active) VALUES (?, ?)",
-    [name, active],
-    (err, result) => {
-      if (err) return res.status(500).json({ error: "Lỗi khi thêm size" });
-
-      res.json({ message: "Thêm size thành công", id: result.insertId });
-    }
-  );
+  try {
+    const [result] = await db
+      .promise()
+      .query("INSERT INTO sizes (name, active) VALUES (?, ?)", [name, active]);
+    res.json({ message: "Thêm size thành công", id: result.insertId });
+  } catch (err) {
+    console.error("Lỗi thêm size:", err);
+    res.status(500).json({ error: "Lỗi khi thêm size" });
+  }
 });
 
 // 📌 PUT /api/sizes/:id => Cập nhật size
-router.put("/:id", (req, res) => {
+router.put("/:id", async (req, res) => {
   const { id } = req.params;
   const { name, active } = req.body;
-  if (!name || !active)
+
+  if (!name || !active) {
     return res.status(400).json({ error: "Thiếu tên size hoặc trạng thái" });
+  }
 
-  db.query(
-    "UPDATE sizes SET name = ?, active = ? WHERE id = ?",
-    [name, active, id],
-    (err, result) => {
-      if (err) return res.status(500).json({ error: "Lỗi khi cập nhật size" });
+  try {
+    const [result] = await db
+      .promise()
+      .query("UPDATE sizes SET name = ?, active = ? WHERE id = ?", [
+        name,
+        active,
+        id,
+      ]);
 
-      if (result.affectedRows === 0)
-        return res.status(404).json({ error: "Không tìm thấy size" });
-
-      res.json({ message: "Cập nhật size thành công" });
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "Không tìm thấy size" });
     }
-  );
+
+    res.json({ message: "Cập nhật size thành công" });
+  } catch (err) {
+    console.error("Lỗi cập nhật size:", err);
+    res.status(500).json({ error: "Lỗi khi cập nhật size" });
+  }
 });
 
 // 📌 DELETE /api/sizes/:id => Xoá size
-router.delete("/:id", (req, res) => {
+router.delete("/:id", async (req, res) => {
   const { id } = req.params;
 
-  db.query("DELETE FROM sizes WHERE id = ?", [id], (err, result) => {
-    if (err) return res.status(500).json({ error: "Lỗi khi xoá size" });
+  try {
+    const [result] = await db
+      .promise()
+      .query("DELETE FROM sizes WHERE id = ?", [id]);
 
-    if (result.affectedRows === 0)
+    if (result.affectedRows === 0) {
       return res.status(404).json({ error: "Không tìm thấy size" });
+    }
 
     res.json({ message: "Xoá size thành công" });
-  });
+  } catch (err) {
+    console.error("Lỗi xoá size:", err);
+    res.status(500).json({ error: "Lỗi khi xoá size" });
+  }
 });
 
 module.exports = router;

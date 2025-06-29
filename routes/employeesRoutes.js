@@ -8,6 +8,7 @@ const { promisify } = require("util");
 const nodemailer = require("nodemailer");
 const query = promisify(db.query).bind(db);
 const uploadAvatar = require("../middleware/uploadAvatar");
+
 // Lấy danh sách nhân viên có tìm kiếm và phân trang
 router.get(
   "/employees",
@@ -20,15 +21,12 @@ router.get(
 
     try {
       const employees = await query(
-        `SELECT * FROM employees 
-       WHERE full_name LIKE ? OR email LIKE ? OR phone LIKE ?
-       ORDER BY id DESC LIMIT ? OFFSET ?`,
+        `SELECT * FROM employees WHERE full_name LIKE ? OR email LIKE ? OR phone LIKE ? ORDER BY id DESC LIMIT ? OFFSET ?`,
         [searchQuery, searchQuery, searchQuery, Number(limit), Number(offset)]
       );
 
       const countResult = await query(
-        `SELECT COUNT(*) as total FROM employees 
-       WHERE full_name LIKE ? OR email LIKE ? OR phone LIKE ?`,
+        `SELECT COUNT(*) as total FROM employees WHERE full_name LIKE ? OR email LIKE ? OR phone LIKE ?`,
         [searchQuery, searchQuery, searchQuery]
       );
 
@@ -45,12 +43,11 @@ router.get(
 );
 
 // Thêm nhân viên
-
 router.post(
   "/employees",
   authenticate,
   authorize(["admin"]),
-  uploadAvatar.single("avatar"), // ✅ dùng đúng middleware xử lý avatar
+  uploadAvatar.single("avatar"),
   async (req, res) => {
     try {
       const {
@@ -75,11 +72,7 @@ router.post(
       const hashedPassword = await bcrypt.hash(password, 10);
       const avatar = req.file ? `/uploads/avatars/${req.file.filename}` : null;
 
-      const sql = `
-        INSERT INTO employees
-        (full_name, email, password, phone, position, department, address, role, status, avatar, created_at, updated_at, role_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW(), ?)
-      `;
+      const sql = `INSERT INTO employees (full_name, email, password, phone, position, department, address, role, status, avatar, created_at, updated_at, role_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW(), ?)`;
 
       const result = await query(sql, [
         full_name,
@@ -106,12 +99,13 @@ router.post(
     }
   }
 );
+
 // Cập nhật nhân viên
 router.put(
   "/employees/:id",
   authenticate,
   authorize(["admin"]),
-  uploadAvatar.single("avatar"), // 👈 thêm xử lý upload
+  uploadAvatar.single("avatar"),
   async (req, res) => {
     try {
       const {
@@ -153,7 +147,6 @@ router.put(
         values.push(hashedPassword);
       }
 
-      // 👇 Thêm avatar nếu có upload
       if (req.file) {
         const avatarPath = `/uploads/avatars/${req.file.filename}`;
         fields.push("avatar = ?");
@@ -187,19 +180,22 @@ router.delete(
     }
   }
 );
+
+// Đổi mật khẩu
 router.put("/change-password", authenticate, async (req, res) => {
-  const userId = req.user.id; // Lấy ID từ token
+  const userId = req.user.id;
   const { oldPassword, newPassword } = req.body;
 
   if (!oldPassword || !newPassword) {
-    return res.status(400).json({
-      success: false,
-      message: "Vui lòng nhập đầy đủ mật khẩu cũ và mật khẩu mới.",
-    });
+    return res
+      .status(400)
+      .json({
+        success: false,
+        message: "Vui lòng nhập đầy đủ mật khẩu cũ và mật khẩu mới.",
+      });
   }
 
   try {
-    // Lấy thông tin nhân viên
     const rows = await query(
       "SELECT password, email, full_name FROM employees WHERE id = ?",
       [userId]
@@ -224,7 +220,6 @@ router.put("/change-password", authenticate, async (req, res) => {
       userId,
     ]);
 
-    // Gửi email thông báo
     const transporter = nodemailer.createTransport({
       host: process.env.EMAIL_HOST,
       port: Number(process.env.EMAIL_PORT),
@@ -236,17 +231,9 @@ router.put("/change-password", authenticate, async (req, res) => {
       tls: { rejectUnauthorized: false },
     });
 
-    const content = `
-      Xin chào ${full_name},
-
-      Bạn đã đổi mật khẩu thành công vào lúc ${new Date().toLocaleString(
-        "vi-VN"
-      )}.
-      Nếu bạn không thực hiện hành động này, vui lòng liên hệ bộ phận IT ngay lập tức.
-
-      Trân trọng,
-      Phòng Nhân sự
-    `;
+    const content = `Xin chào ${full_name},\n\nBạn đã đổi mật khẩu thành công vào lúc ${new Date().toLocaleString(
+      "vi-VN"
+    )}\nNếu bạn không thực hiện hành động này, vui lòng liên hệ bộ phận IT ngay lập tức.\n\nTrân trọng,\nPhòng Nhân sự`;
 
     await transporter.sendMail({
       from: `"HR Finly" <${process.env.EMAIL_USER}>`,
@@ -261,7 +248,8 @@ router.put("/change-password", authenticate, async (req, res) => {
     res.status(500).json({ success: false, message: "Lỗi server." });
   }
 });
-// Hàm tạo OTP
+
+// Gửi OTP khôi phục mật khẩu
 const generateOTP = () =>
   Math.floor(100000 + Math.random() * 900000).toString();
 
@@ -282,8 +270,7 @@ router.post("/forgot-password", async (req, res) => {
         .json({ success: false, message: "Email không tồn tại." });
 
     const otp = generateOTP();
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // OTP hết hạn sau 10 phút
-
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
     await query(
       "INSERT INTO password_resets (email, otp_code, expires_at) VALUES (?, ?, ?)",
       [email, otp, expiresAt]
@@ -314,6 +301,8 @@ router.post("/forgot-password", async (req, res) => {
     res.status(500).json({ success: false, message: "Lỗi gửi OTP" });
   }
 });
+
+// Đặt lại mật khẩu
 router.put("/reset-password", async (req, res) => {
   const { email, otp, newPassword } = req.body;
 
@@ -340,8 +329,6 @@ router.put("/reset-password", async (req, res) => {
       hashed,
       email,
     ]);
-
-    // Xóa OTP sau khi sử dụng
     await query("DELETE FROM password_resets WHERE email = ?", [email]);
 
     res.json({ success: true, message: "Đặt lại mật khẩu thành công." });

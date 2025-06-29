@@ -1,67 +1,65 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../db");
+const { promisify } = require("util");
 
-// Route lấy stats
-router.get("/stats", (req, res) => {
-  db.query("SELECT COUNT(*) AS total FROM orders", (err, ordersRes) => {
-    if (err) return res.status(500).json({ message: "Lỗi server" });
+const query = promisify(db.query).bind(db);
+
+// Lấy thống kê chính
+router.get("/stats", async (req, res) => {
+  try {
+    const ordersRes = await query("SELECT COUNT(*) AS total FROM orders");
     const totalOrders = ordersRes[0].total;
 
-    db.query(
-      "SELECT SUM(final_total) AS total FROM orders WHERE DATE(created_at) = CURDATE()",
-      (err, revenueRes) => {
-        if (err) return res.status(500).json({ message: "Lỗi server" });
-        const revenueToday = revenueRes[0].total || 0;
-
-        db.query(
-          "SELECT COUNT(*) AS total FROM sanpham WHERE status = 'active'",
-          (err, productsRes) => {
-            if (err) return res.status(500).json({ message: "Lỗi server" });
-            const productsCount = productsRes[0].total;
-
-            db.query(
-              "SELECT COUNT(*) AS total FROM customers WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)",
-              (err, customersRes) => {
-                if (err) return res.status(500).json({ message: "Lỗi server" });
-                const newCustomers = customersRes[0].total;
-
-                const statsData = [
-                  {
-                    label: "Tổng số đơn hàng",
-                    number: totalOrders,
-                    helpText: "Cập nhật hôm nay",
-                  },
-                  {
-                    label: "Doanh thu hôm nay",
-                    number: revenueToday,
-                    helpText: "Tổng doanh thu",
-                  },
-                  {
-                    label: "Sản phẩm đang bán",
-                    number: productsCount,
-                    helpText: "Đang kinh doanh",
-                  },
-                  {
-                    label: "Khách hàng mới",
-                    number: newCustomers,
-                    helpText: "Trong tuần",
-                  },
-                ];
-
-                res.json(statsData);
-              }
-            );
-          }
-        );
-      }
+    const revenueRes = await query(
+      "SELECT SUM(final_total) AS total FROM orders WHERE DATE(created_at) = CURDATE()"
     );
-  });
+    const revenueToday = revenueRes[0].total || 0;
+
+    const productsRes = await query(
+      "SELECT COUNT(*) AS total FROM sanpham WHERE status = 'active'"
+    );
+    const productsCount = productsRes[0].total;
+
+    const customersRes = await query(
+      "SELECT COUNT(*) AS total FROM customers WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)"
+    );
+    const newCustomers = customersRes[0].total;
+
+    const statsData = [
+      {
+        label: "Tổng số đơn hàng",
+        number: totalOrders,
+        helpText: "Cập nhật hôm nay",
+      },
+      {
+        label: "Doanh thu hôm nay",
+        number: revenueToday,
+        helpText: "Tổng doanh thu",
+      },
+      {
+        label: "Sản phẩm đang bán",
+        number: productsCount,
+        helpText: "Đang kinh doanh",
+      },
+      {
+        label: "Khách hàng mới",
+        number: newCustomers,
+        helpText: "Trong tuần",
+      },
+    ];
+
+    res.json(statsData);
+  } catch (err) {
+    console.error("Lỗi lấy thống kê:", err);
+    res.status(500).json({ message: "Lỗi server khi lấy thống kê" });
+  }
 });
-router.get("/revenue", (req, res) => {
+
+// Thống kê doanh thu theo ngày (lọc theo khoảng thời gian)
+router.get("/revenue", async (req, res) => {
   const { from_date, to_date } = req.query;
 
-  // Validate ngày (nếu có)
   const isValidDate = (dateStr) => /^\d{4}-\d{2}-\d{2}$/.test(dateStr);
   if (
     (from_date && !isValidDate(from_date)) ||
@@ -89,19 +87,17 @@ router.get("/revenue", (req, res) => {
     to_date || null,
   ];
 
-  db.query(sql, params, (err, results) => {
-    if (err) {
-      console.error("Error fetching daily revenue:", err);
-      return res
-        .status(500)
-        .json({ error: "Lỗi server khi lấy dữ liệu doanh thu" });
-    }
-    // Kết quả dạng [{ date: '2023-06-01', revenue: 100000 }, ...]
+  try {
+    const results = await query(sql, params);
     res.json(results);
-  });
+  } catch (err) {
+    console.error("Lỗi lấy doanh thu:", err);
+    res.status(500).json({ error: "Lỗi server khi lấy dữ liệu doanh thu" });
+  }
 });
-// API lấy đơn hàng mới nhất (mặc định lấy 10 đơn gần nhất)
-router.get("/orders", (req, res) => {
+
+// Lấy danh sách đơn hàng gần nhất
+router.get("/orders", async (req, res) => {
   const limit = parseInt(req.query.limit) || 10;
 
   const sql = `
@@ -116,14 +112,13 @@ router.get("/orders", (req, res) => {
     LIMIT ?
   `;
 
-  db.query(sql, [limit], (err, results) => {
-    if (err) {
-      console.error("Error fetching recent orders:", err);
-      return res.status(500).json({ error: "Lỗi server khi lấy đơn hàng" });
-    }
-
+  try {
+    const results = await query(sql, [limit]);
     res.json({ data: results });
-  });
+  } catch (err) {
+    console.error("Lỗi lấy đơn hàng:", err);
+    res.status(500).json({ error: "Lỗi server khi lấy đơn hàng" });
+  }
 });
 
 module.exports = router;
