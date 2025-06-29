@@ -6,7 +6,7 @@ const { Server } = require("socket.io");
 require("dotenv").config();
 const app = express();
 const { initSocket } = require("./sockets/notiSocket");
-const chatSocket = require("./sockets/chatSocket");
+const { chatSocket, onlineUsers } = require("./sockets/chatSocket");
 const { initAttendanceSocket } = require("./sockets/attendanceSocket");
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -26,7 +26,7 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use("/uploads", express.static(path.join(__dirname, "public", "uploads")));
-
+app.set("io", io);
 // Import DB + Routes
 const db = require("./db");
 const userRoutes = require("./routes/user");
@@ -74,6 +74,7 @@ app.get("/api/test", (req, res) => {
 });
 // Sử dụng socket chat
 chatSocket(io);
+app.set("onlineUsers", onlineUsers);
 initSocket(io);
 initAttendanceSocket(io);
 // Khởi động server

@@ -2,19 +2,19 @@
 // const dotenv = require("dotenv");
 // dotenv.config();
 
-// const db = mysql.createConnection({
+// const pool = mysql.createPool({
 //   host: process.env.DB_HOST,
 //   user: process.env.DB_USER,
 //   password: process.env.DB_PASSWORD,
 //   database: process.env.DB_NAME,
+//   waitForConnections: true,
+//   connectionLimit: 10, // số lượng connection tối đa
+//   queueLimit: 0, // không giới hạn số lượng request đang chờ
 // });
 
-// db.connect((err) => {
-//   if (err) throw err;
-//   console.log("✅ Đã kết nối MySQL");
-// });
+// console.log("✅ MySQL pool đã sẵn sàng");
 
-// module.exports = db;
+// module.exports = pool;
 const mysql = require("mysql2");
 const dotenv = require("dotenv");
 dotenv.config();

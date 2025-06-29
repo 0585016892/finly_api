@@ -24,6 +24,7 @@ const storage = multer.diskStorage({
       "uploads",
       subFolder
     );
+    console.log("✅ Uploading to:", uploadPath);
     ensureDir(uploadPath); // 🔧 Đảm bảo thư mục tồn tại
 
     req.uploadSubFolder = subFolder; // dùng nếu muốn sau này
