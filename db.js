@@ -15,25 +15,25 @@
 // console.log("✅ MySQL pool đã sẵn sàng");
 
 // module.exports = pool;
-const mysql = require("mysql2");
+const mysql = require("mysql2/promise"); // Ưu tiên dùng mysql2/promise
 const dotenv = require("dotenv");
 dotenv.config();
 
-const db = mysql.createPool({
+// Sử dụng connection pool
+const pool = mysql.createPool({
   host: process.env.MYSQLHOST,
   port: process.env.MYSQLPORT,
   user: process.env.MYSQLUSER,
   password: process.env.MYSQLPASSWORD,
   database: process.env.MYSQLDATABASE,
   ssl: {
-    // Chấp nhận chứng chỉ tự ký (KHÔNG an toàn cho production thật sự)
     rejectUnauthorized: false,
   },
   waitForConnections: true,
-  connectionLimit: 10, // số lượng connection tối đa
-  queueLimit: 0, // không giới hạn số lượng request đang chờ
+  connectionLimit: 10,
+  queueLimit: 0,
 });
 
 console.log("✅ MySQL pool đã sẵn sàng");
 
-module.exports = pool;
+module.exports = pool; // ✅ Export đúng
