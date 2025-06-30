@@ -172,7 +172,7 @@ router.post("/upload-image", upload.single("image"), async (req, res) => {
         const botReply = {
           sender: "bot",
           receiver: sender,
-          content: `🔍 Có phải bạn đang tìm sản phẩm "${closest.name}"?\n👉 Xem tại: http://localhost:3000/product/${closest.slug}`,
+          content: `🔍 Có phải bạn đang tìm sản phẩm "${closest.name}"?\n👉 Xem tại: https://www.finlyshop.site//product/${closest.slug}`,
           image: `${URL}/uploads/${closest.image}`,
           product: {
             id: closest.id,
