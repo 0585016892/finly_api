@@ -96,7 +96,7 @@ router.post("/import-excel", upload.single("file"), (req, res) => {
   }
 });
 // API: Tự động sinh rule từ GPT và lưu vào DB
-router.post("/suggest-gemini", async (req, res) => {
+router.post("/suggest_gemini", async (req, res) => {
   try {
     const { prompt } = req.body;
 
@@ -139,13 +139,11 @@ router.post("/suggest-gemini", async (req, res) => {
     });
   } catch (error) {
     console.error("Gemini error:", error);
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "❌ Lỗi gọi Gemini",
-        error: error.message,
-      });
+    res.status(500).json({
+      success: false,
+      message: "❌ Lỗi gọi Gemini",
+      error: error.message,
+    });
   }
 });
 
