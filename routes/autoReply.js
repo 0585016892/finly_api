@@ -96,53 +96,57 @@ router.post("/import-excel", upload.single("file"), (req, res) => {
   }
 });
 // API: Tự động sinh rule từ GPT và lưu vào DB
-router.get("/suggest-gpt", async (req, res) => {
+router.post("/suggest-gemini", async (req, res) => {
   try {
-    const prompt = `
-Bạn là nhân viên tư vấn bán quần áo online.
-Hãy tạo 5 cặp câu hỏi thường gặp (FAQ) và câu trả lời lịch sự, thân thiện từ khách hàng về sản phẩm, giao hàng, đổi trả, size.
-Trả kết quả dưới dạng JSON: [{"keyword": "...", "reply": "..."}, ...]
-`;
+    const { prompt } = req.body;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
-      messages: [
-        {
-          role: "system",
-          content: "Bạn là trợ lý tư vấn bán hàng chuyên nghiệp.",
-        },
-        { role: "user", content: prompt },
-      ],
-      temperature: 0.7,
-    });
+    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+    const result = await model.generateContent(
+      prompt || "Tạo các rule chatbot cho shop quần áo"
+    );
+    const response = await result.response;
+    const text = response.text();
 
-    const content = response.choices[0].message.content;
+    const lines = text
+      .split("\n")
+      .map((line) => line.replace(/^[-–•🔹]*\s*/, "").trim()) // loại dấu đầu dòng
+      .filter((line) => line.length > 0);
 
-    // Cố gắng parse JSON
-    const rules = JSON.parse(content);
+    // Gợi ý keyword theo từng nhóm
+    const keyword = prompt.toLowerCase().includes("giá")
+      ? "giá"
+      : prompt.toLowerCase().includes("ship")
+      ? "ship"
+      : prompt.toLowerCase().includes("đổi")
+      ? "đổi trả"
+      : prompt.toLowerCase().includes("bảo hành")
+      ? "bảo hành"
+      : "chung";
 
-    if (!Array.isArray(rules)) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Phản hồi GPT không đúng định dạng" });
-    }
-
-    const values = rules.map((r) => [r.keyword, r.reply]);
+    const values = lines.map((reply) => [keyword, reply]);
 
     const sql = "INSERT INTO chatbot_replies (keyword, reply) VALUES ?";
     db.query(sql, [values], (err, result) => {
       if (err) {
-        console.error("❌ Lỗi khi lưu rule:", err);
-        return res
-          .status(500)
-          .json({ success: false, message: "Lưu rule thất bại" });
+        console.error("❌ Lỗi lưu DB:", err);
+        return res.status(500).json({ success: false, error: err.message });
       }
-
-      res.json({ success: true, inserted: result.affectedRows, rules });
+      res.json({
+        success: true,
+        inserted: result.affectedRows,
+        replies: lines,
+      });
     });
-  } catch (err) {
-    console.error("GPT error:", err);
-    res.status(500).json({ success: false, message: "Lỗi khi gọi GPT" });
+  } catch (error) {
+    console.error("Gemini error:", error);
+    res
+      .status(500)
+      .json({
+        success: false,
+        message: "❌ Lỗi gọi Gemini",
+        error: error.message,
+      });
   }
 });
+
 module.exports = router;
