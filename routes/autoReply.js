@@ -4,14 +4,13 @@ const router = express.Router();
 const multer = require("multer");
 const xlsx = require("xlsx");
 const db = require("../db");
-const { OpenAI } = require("openai");
+const { GoogleGenerativeAI } = require("@google/generative-ai");
+
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 // Cấu hình lưu file
+
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
 
 // Lấy danh sách từ khoá
 router.get("/", (req, res) => {
