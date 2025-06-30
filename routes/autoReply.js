@@ -100,7 +100,9 @@ router.post("/suggest_gemini_a", async (req, res) => {
   try {
     const { prompt } = req.body;
 
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+    const model = genAI.getGenerativeModel({
+      model: "models/gemini-1.5-flash-001",
+    });
     const result = await model.generateContent(
       prompt || "Tạo các rule chatbot cho shop quần áo"
     );
