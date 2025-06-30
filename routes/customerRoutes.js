@@ -1,116 +1,123 @@
 const express = require("express");
 const router = express.Router();
-const db = require("../db");
-const { promisify } = require("util");
+const db = require("../db"); // Đảm bảo bạn đã kết nối đúng với MySQL
+// Lấy danh sách khách hàng
+router.get("/", (req, res) => {
+  console.log("Nhận yêu cầu GET /api/kh");
 
-const query = promisify(db.query).bind(db);
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 10;
+  const offset = (page - 1) * limit;
 
-// Lấy danh sách khách hàng có phân trang và tìm kiếm
-router.get("/", async (req, res) => {
-  try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-    const offset = (page - 1) * limit;
-    let whereClause = "WHERE 1 = 1";
+  let whereClause = "WHERE 1 = 1"; // Phần này cho phép bạn thêm điều kiện lọc vào SQL
 
-    if (req.query.status) {
-      whereClause += ` AND status = ${db.escape(req.query.status)}`;
+  // Kiểm tra nếu có tham số status
+  if (req.query.status) {
+    whereClause += ` AND status = ${db.escape(req.query.status)}`;
+  }
+  // Kiểm tra nếu có tham số keyword
+  if (req.query.keyword) {
+    whereClause += ` AND full_name LIKE ${db.escape(
+      "%" + req.query.keyword + "%"
+    )}`;
+  }
+
+  const sqlCount = `SELECT COUNT(*) AS total FROM customers ${whereClause}`; // Đếm tổng số khách hàng
+  const sqlCustomers = `SELECT * FROM customers ${whereClause} LIMIT ${limit} OFFSET ${offset}`; // Lấy danh sách khách hàng
+
+  // Truy vấn số lượng khách hàng
+  db.query(sqlCount, (err, countResults) => {
+    if (err) {
+      console.error("❌ Lỗi khi lấy số lượng khách hàng:", err);
+      return res.status(500).json({ error: "Lỗi khi lấy tổng số khách hàng." });
     }
-    if (req.query.keyword) {
-      whereClause += ` AND full_name LIKE ${db.escape(
-        "%" + req.query.keyword + "%"
-      )}`;
-    }
 
-    const countSql = `SELECT COUNT(*) AS total FROM customers ${whereClause}`;
-    const dataSql = `SELECT * FROM customers ${whereClause} LIMIT ${limit} OFFSET ${offset}`;
-
-    const countResults = await query(countSql);
     const totalCustomers = countResults[0].total;
     const totalPages = Math.ceil(totalCustomers / limit);
-    const customers = await query(dataSql);
 
-    res.status(200).json({
-      customers,
-      totalCustomers,
-      totalPages,
-      currentPage: page,
+    // Truy vấn danh sách khách hàng
+    db.query(sqlCustomers, (err, customers) => {
+      if (err) {
+        console.error("❌ Lỗi khi lấy khách hàng:", err);
+        return res
+          .status(500)
+          .json({ error: "Lỗi khi lấy dữ liệu khách hàng từ cơ sở dữ liệu." });
+      }
+
+      // Trả kết quả về frontend
+      res.status(200).json({
+        customers: customers,
+        totalCustomers: totalCustomers,
+        totalPages: totalPages,
+        currentPage: page,
+      });
     });
-  } catch (err) {
-    console.error("❌ Lỗi khi lấy danh sách khách hàng:", err);
-    res.status(500).json({ error: "Lỗi khi lấy danh sách khách hàng." });
-  }
+  });
 });
 
 // Thêm khách hàng
-router.post("/add", async (req, res) => {
-  try {
-    const { full_name, email, phone, address } = req.body;
-    if (!full_name || !email) {
-      return res.status(400).json({ error: "Tên và Email là bắt buộc" });
-    }
-
-    const sql = `INSERT INTO customers (full_name, email, phone, address) VALUES (?, ?, ?, ?)`;
-    const result = await query(sql, [full_name, email, phone, address]);
-
-    res.status(201).json({
-      message: "✅ Thêm thành công",
-      customer_id: result.insertId,
-    });
-  } catch (err) {
-    console.error("❌ Lỗi khi thêm khách hàng:", err);
-    res.status(500).json({ error: "Thêm khách hàng thất bại" });
+router.post("/add", (req, res) => {
+  const { full_name, email, phone, address } = req.body;
+  if (!full_name || !email) {
+    return res.status(400).json({ error: "Tên và Email là bắt buộc" });
   }
-});
 
+  const sql = `INSERT INTO customers (full_name, email, phone, address) VALUES (?, ?, ?, ?)`;
+  db.query(sql, [full_name, email, phone, address], (err, result) => {
+    if (err) {
+      console.error("❌ Lỗi:", err);
+      return res.status(500).json({ error: "Thêm khách hàng thất bại" });
+    }
+    res
+      .status(201)
+      .json({ message: "✅ Thêm thành công", customer_id: result.insertId });
+  });
+});
 // Sửa khách hàng
-router.put("/update/:id", async (req, res) => {
-  try {
-    const { full_name, email, phone, address } = req.body;
-    const sql = `
+router.put("/update/:id", (req, res) => {
+  const { full_name, email, phone, address } = req.body;
+  const sql = `
       UPDATE customers
       SET full_name = ?, email = ?, phone = ?, address = ?
       WHERE id = ?
     `;
-    await query(sql, [full_name, email, phone, address, req.params.id]);
-    res.json({ message: "✅ Cập nhật thành công" });
-  } catch (err) {
-    res.status(500).json({ error: "Cập nhật thất bại", details: err.message });
-  }
-});
-
-// Xoá khách hàng
-router.delete("/delete/:id", async (req, res) => {
-  try {
-    const result = await query("DELETE FROM customers WHERE id = ?", [
-      req.params.id,
-    ]);
-    if (result.affectedRows === 0) {
-      return res
-        .status(404)
-        .json({ message: "❌ Không tìm thấy khách hàng để xoá" });
+  db.query(
+    sql,
+    [full_name, email, phone, address, req.params.id],
+    (err, result) => {
+      if (err) return res.status(500).json({ error: "Cập nhật thất bại" });
+      res.json({ message: "✅ Cập nhật thành công" });
     }
-    res.json({ message: "✅ Đã xoá khách hàng" });
-  } catch (err) {
-    res.status(500).json({ error: "Xoá thất bại", details: err.message });
-  }
+  );
 });
-
+// Xóa khách hàng
+router.delete("/delete/:id", (req, res) => {
+  db.query(
+    "DELETE FROM customers WHERE id = ?",
+    [req.params.id],
+    (err, result) => {
+      if (err) return res.status(500).json({ error: "Xoá thất bại" });
+      res.json({ message: "✅ Đã xoá khách hàng" });
+    }
+  );
+});
 // Cập nhật trạng thái khách hàng
-router.patch("/update_status/:id", async (req, res) => {
-  try {
-    const { status } = req.body;
-    const { id } = req.params;
+router.patch("/update_status/:id", (req, res) => {
+  console.log("Dữ liệu request body:", req.body); // Log dữ liệu nhận được từ Postman
+  const { id } = req.params;
+  const { status } = req.body;
 
-    const allowed = ["active", "inactive"];
-    if (!allowed.includes(status)) {
-      return res.status(400).json({ error: "Trạng thái không hợp lệ" });
+  const allowed = ["active", "inactive"];
+  if (!allowed.includes(status)) {
+    return res.status(400).json({ error: "Trạng thái không hợp lệ" });
+  }
+
+  const sql = `UPDATE customers SET status = ? WHERE id = ?`;
+  db.query(sql, [status, id], (err, result) => {
+    if (err) {
+      console.error("Lỗi khi cập nhật trạng thái:", err);
+      return res.status(500).json({ error: "Lỗi khi cập nhật trạng thái" });
     }
-
-    const result = await query("UPDATE customers SET status = ? WHERE id = ?", [
-      status,
-      id,
-    ]);
 
     if (result.affectedRows === 0) {
       return res
@@ -121,43 +128,41 @@ router.patch("/update_status/:id", async (req, res) => {
     res.json({
       message: `✅ Cập nhật trạng thái khách hàng với ID ${id} thành ${status}`,
     });
-  } catch (err) {
-    console.error("❌ Lỗi cập nhật trạng thái:", err);
-    res.status(500).json({ error: "Lỗi khi cập nhật trạng thái" });
-  }
+  });
 });
+router.get("/details/:id", (req, res) => {
+  const customerId = req.params.id;
 
-// Chi tiết khách hàng + đơn hàng đã mua
-router.get("/details/:id", async (req, res) => {
-  try {
-    const customerId = req.params.id;
+  const sqlCustomer = `SELECT * FROM customers WHERE id = ?`;
+  const sqlOrders = `
+    SELECT 
+      orders.id AS order_id, orders.created_at,
+      sanpham.name, sanpham.image, order_items.quantity,order_items.size,order_items.color, order_items.price
+    FROM orders
+    JOIN order_items ON orders.id = order_items.order_id
+    JOIN sanpham ON order_items.product_id = sanpham.id
+    WHERE orders.customer_id = ?
+    ORDER BY orders.created_at DESC
+  `;
 
-    const customerResult = await query("SELECT * FROM customers WHERE id = ?", [
-      customerId,
-    ]);
-    if (customerResult.length === 0) {
+  db.query(sqlCustomer, [customerId], (err, customerResult) => {
+    if (err || customerResult.length === 0) {
       return res.status(404).json({ error: "Không tìm thấy khách hàng." });
     }
 
     const customer = customerResult[0];
-    const sqlOrders = `
-      SELECT 
-        orders.id AS order_id, orders.created_at,
-        sanpham.name, sanpham.image, order_items.quantity, order_items.size, order_items.color, order_items.price
-      FROM orders
-      JOIN order_items ON orders.id = order_items.order_id
-      JOIN sanpham ON order_items.product_id = sanpham.id
-      WHERE orders.customer_id = ?
-      ORDER BY orders.created_at DESC
-    `;
-    const orders = await query(sqlOrders, [customerId]);
 
-    res.json({ customer, orders });
-  } catch (err) {
-    res
-      .status(500)
-      .json({ error: "Lỗi khi lấy chi tiết khách hàng", details: err.message });
-  }
+    db.query(sqlOrders, [customerId], (err, orders) => {
+      if (err) {
+        return res.status(500).json({ error: "Lỗi khi lấy dữ liệu đơn hàng." });
+      }
+
+      res.json({
+        customer,
+        orders,
+      });
+    });
+  });
 });
 
 module.exports = router;

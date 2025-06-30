@@ -1,38 +1,33 @@
 const express = require("express");
 const router = express.Router();
-const db = require("../db");
+const db = require("../db"); // Dùng mysql dạng callback
 const ExcelJS = require("exceljs");
 
-// Helper để dùng query dạng Promise
-const query = (sql, params = []) =>
-  new Promise((resolve, reject) => {
-    db.query(sql, params, (err, results) => {
-      if (err) reject(err);
-      else resolve(results);
-    });
-  });
-
-// ✅ Lấy danh sách chấm công theo ngày
-router.get("/date/:date", async (req, res) => {
+// ✅ Lấy danh sách chấm công theo ngày (callback)
+router.get("/date/:date", (req, res) => {
   const { date } = req.params;
+
   const sql = `
     SELECT a.*, u.*
     FROM attendances a
     JOIN employees u ON a.user_id = u.id
     WHERE a.work_date = ?
   `;
-  try {
-    const rows = await query(sql, [date]);
+
+  db.query(sql, [date], (err, rows) => {
+    if (err) {
+      console.error("❌ Lỗi lấy chấm công theo ngày:", err);
+      return res.status(500).json({ message: "Lỗi máy chủ" });
+    }
+
     res.json(rows);
-  } catch (err) {
-    console.error("❌ Lỗi lấy chấm công theo ngày:", err);
-    res.status(500).json({ message: "Lỗi máy chủ" });
-  }
+  });
 });
 
-// ✅ Export chấm công theo tháng
-router.get("/export/:month", async (req, res) => {
+// ✅ Export chấm công theo tháng (callback)
+router.get("/export/:month", (req, res) => {
   const { month } = req.params;
+
   const sql = `
     SELECT a.*, u.*
     FROM attendances a
@@ -40,8 +35,12 @@ router.get("/export/:month", async (req, res) => {
     WHERE DATE_FORMAT(a.work_date, '%Y-%m') = ?
     ORDER BY a.work_date ASC
   `;
-  try {
-    const rows = await query(sql, [month]);
+
+  db.query(sql, [month], (err, rows) => {
+    if (err) {
+      console.error("❌ Lỗi export chấm công:", err);
+      return res.status(500).json({ message: "Lỗi máy chủ khi export" });
+    }
 
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("Cham Cong");
@@ -77,22 +76,22 @@ router.get("/export/:month", async (req, res) => {
       `attachment; filename=chamcong-${month}.xlsx`
     );
 
-    await workbook.xlsx.write(res);
-    res.end();
-  } catch (err) {
-    console.error("❌ Lỗi export chấm công:", err);
-    res.status(500).json({ message: "Lỗi khi tạo file Excel" });
-  }
+    workbook.xlsx
+      .write(res)
+      .then(() => {
+        res.end();
+      })
+      .catch((error) => {
+        console.error("❌ Lỗi khi ghi file Excel:", error);
+        res.status(500).json({ message: "Lỗi khi tạo file Excel" });
+      });
+  });
 });
-
-// ✅ Lọc phân trang theo tên nhân viên
-router.get("/filter", async (req, res) => {
+router.get("/filter", (req, res) => {
   const name = req.query.name || "";
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 10;
   const offset = (page - 1) * limit;
-
-  const searchName = `%${name}%`;
 
   const countSql = `
     SELECT COUNT(*) AS total
@@ -110,23 +109,33 @@ router.get("/filter", async (req, res) => {
     LIMIT ? OFFSET ?
   `;
 
-  try {
-    const countResult = await query(countSql, [searchName]);
+  const searchName = `%${name}%`;
+
+  // Truy vấn tổng số bản ghi
+  db.query(countSql, [searchName], (countErr, countResult) => {
+    if (countErr) {
+      console.error("Lỗi đếm tổng bản ghi:", countErr);
+      return res.status(500).json({ message: "Lỗi máy chủ" });
+    }
+
     const total = countResult[0].total;
     const totalPages = Math.ceil(total / limit);
 
-    const dataRows = await query(dataSql, [searchName, limit, offset]);
+    // Truy vấn dữ liệu phân trang
+    db.query(dataSql, [searchName, limit, offset], (dataErr, dataRows) => {
+      if (dataErr) {
+        console.error("Lỗi lấy dữ liệu:", dataErr);
+        return res.status(500).json({ message: "Lỗi máy chủ" });
+      }
 
-    res.json({
-      total,
-      totalPages,
-      currentPage: page,
-      data: dataRows,
+      res.json({
+        total,
+        totalPages,
+        currentPage: page,
+        data: dataRows,
+      });
     });
-  } catch (err) {
-    console.error("❌ Lỗi lọc phân trang:", err);
-    res.status(500).json({ message: "Lỗi máy chủ" });
-  }
+  });
 });
 
 module.exports = router;

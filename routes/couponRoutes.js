@@ -1,134 +1,163 @@
 const express = require("express");
 const router = express.Router();
-const db = require("../db");
+const db = require("../db"); // Đảm bảo bạn đã kết nối đúng với MySQL
 const multer = require("multer");
-const { promisify } = require("util");
 
+// Middleware để xử lý JSON và x-www-form-urlencoded
+router.use(express.json());
+router.use(express.urlencoded({ extended: true }));
 const upload = multer();
-const query = promisify(db.query).bind(db);
+// Lấy danh sách coupon
+router.get("/", (req, res) => {
+  console.log("Nhận yêu cầu GET /api/coupons");
 
-// Lấy danh sách coupon có lọc và phân trang
-router.get("/", async (req, res) => {
-  try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-    const offset = (page - 1) * limit;
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 10;
+  const offset = (page - 1) * limit;
 
-    let whereClause = "WHERE 1 = 1";
+  let whereClause = "WHERE 1 = 1"; // Phần này cho phép bạn thêm điều kiện lọc vào SQL
 
-    if (req.query.status) {
-      whereClause += ` AND status = ${db.escape(req.query.status)}`;
+  // Kiểm tra nếu có tham số status
+  if (req.query.status) {
+    whereClause += ` AND status = ${db.escape(req.query.status)}`;
+  }
+
+  // Kiểm tra nếu có tham số code
+  if (req.query.code) {
+    whereClause += ` AND code LIKE ${db.escape("%" + req.query.code + "%")}`;
+  }
+
+  // Kiểm tra nếu có tham số discount_type
+  if (req.query.discount_type) {
+    whereClause += ` AND discount_type = ${db.escape(req.query.discount_type)}`;
+  }
+
+  // Kiểm tra nếu có tham số min_order_total
+  if (req.query.min_order_total) {
+    whereClause += ` AND min_order_total >= ${db.escape(
+      req.query.min_order_total
+    )}`;
+  }
+
+  const sqlCount = `SELECT COUNT(*) AS total FROM coupons ${whereClause}`; // Đếm tổng số coupon
+  const sqlCoupons = `SELECT * FROM coupons ${whereClause} LIMIT ${limit} OFFSET ${offset}`; // Lấy danh sách coupon
+
+  // Truy vấn số lượng coupon
+  db.query(sqlCount, (err, countResults) => {
+    if (err) {
+      console.error("❌ Lỗi khi lấy số lượng coupon:", err);
+      return res.status(500).json({ error: "Lỗi khi lấy tổng số coupon." });
     }
-    if (req.query.code) {
-      whereClause += ` AND code LIKE ${db.escape("%" + req.query.code + "%")}`;
-    }
-    if (req.query.discount_type) {
-      whereClause += ` AND discount_type = ${db.escape(
-        req.query.discount_type
-      )}`;
-    }
-    if (req.query.min_order_total) {
-      whereClause += ` AND min_order_total >= ${db.escape(
-        req.query.min_order_total
-      )}`;
-    }
 
-    const sqlCount = `SELECT COUNT(*) AS total FROM coupons ${whereClause}`;
-    const sqlCoupons = `SELECT * FROM coupons ${whereClause} LIMIT ${limit} OFFSET ${offset}`;
-
-    const countResults = await query(sqlCount);
     const totalCoupons = countResults[0].total;
     const totalPages = Math.ceil(totalCoupons / limit);
-    const coupons = await query(sqlCoupons);
 
-    res.status(200).json({
-      coupons,
-      totalCoupons,
-      totalPages,
-      currentPage: page,
+    // Truy vấn danh sách coupon
+    db.query(sqlCoupons, (err, coupons) => {
+      if (err) {
+        console.error("❌ Lỗi khi lấy coupon:", err);
+        return res
+          .status(500)
+          .json({ error: "Lỗi khi lấy dữ liệu coupon từ cơ sở dữ liệu." });
+      }
+
+      // Trả kết quả về frontend
+      res.status(200).json({
+        coupons: coupons,
+        totalCoupons: totalCoupons,
+        totalPages: totalPages,
+        currentPage: page,
+      });
     });
-  } catch (err) {
-    console.error("❌ Lỗi khi lấy danh sách coupon:", err);
-    res.status(500).json({ error: "Lỗi khi lấy danh sách mã giảm giá." });
-  }
+  });
 });
 
 // Thêm coupon
-router.post("/add", upload.none(), async (req, res) => {
-  try {
-    const {
-      code,
-      description,
-      discount_type,
-      discount_value,
-      min_order_total,
-      start_date,
-      end_date,
-      quantity,
-      status,
-    } = req.body;
+// Thêm coupon
+router.post("/add", upload.none(), (req, res) => {
+  const {
+    code,
+    description,
+    discount_type,
+    discount_value,
+    min_order_total,
+    start_date,
+    end_date,
+    quantity,
+    status,
+  } = req.body;
 
-    if (!code || !discount_value || !start_date || !end_date) {
-      return res.status(400).json({
-        error: "Mã, giá trị, ngày bắt đầu, ngày kết thúc là bắt buộc.",
-      });
-    }
+  // Kiểm tra thông tin nhập vào
+  if (!code || !discount_value || !start_date || !end_date) {
+    return res.status(400).json({
+      error:
+        "Mã giảm giá, giá trị giảm giá, ngày bắt đầu và ngày kết thúc là bắt buộc.",
+    });
+  }
 
-    const sql = `
-      INSERT INTO coupons 
-      (code, description, discount_type, discount_value, min_order_total, start_date, end_date, quantity, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `;
+  // SQL query để thêm coupon vào cơ sở dữ liệu
+  const sql = `
+    INSERT INTO coupons (code, description, discount_type, discount_value, min_order_total, start_date, end_date, quantity, status)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `;
 
-    const result = await query(sql, [
+  // Thực hiện query vào cơ sở dữ liệu
+  db.query(
+    sql,
+    [
       code,
       description || "",
-      discount_type,
+      discount_type, // Mặc định là "percentage" nếu không có
       discount_value,
-      min_order_total,
+      min_order_total, // Mặc định là 0 nếu không có
       start_date,
       end_date,
-      quantity,
-      status || "active",
-    ]);
+      quantity, // Mặc định là 0 nếu không có
+      status || "active", // Mặc định là "active" nếu không có
+    ],
+    (err, result) => {
+      if (err) {
+        // In chi tiết lỗi ra console
+        console.error("❌ Lỗi khi thêm coupon:", err);
 
-    res.status(201).json({
-      message: "✅ Coupon đã được thêm thành công!",
-      coupon_id: result.insertId,
-    });
-  } catch (err) {
-    console.error("❌ Lỗi khi thêm coupon:", err);
-    res.status(500).json({
-      error: "Lỗi khi thêm mã giảm giá.",
-      details: err.message,
-    });
-  }
+        // Trả về thông tin chi tiết lỗi trong phản hồi
+        return res.status(500).json({
+          error: "Đã xảy ra lỗi khi thêm coupon vào cơ sở dữ liệu.",
+          details: err.message, // Thêm thông tin lỗi chi tiết vào response
+        });
+      }
+
+      // Phản hồi thành công
+      res.status(201).json({
+        message: "✅ Coupon đã được thêm thành công!",
+        coupon_id: result.insertId,
+      });
+    }
+  );
 });
 
-// Cập nhật coupon
-router.put("/update/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const {
-      code,
-      description,
-      discount_type,
-      discount_value,
-      min_order_total,
-      start_date,
-      end_date,
-      quantity,
-      status,
-    } = req.body;
+// API cập nhật mã giảm giá
+router.put("/update/:id", (req, res) => {
+  const { id } = req.params;
+  const {
+    code,
+    description,
+    discount_type,
+    discount_value,
+    min_order_total,
+    start_date,
+    end_date,
+    quantity,
+    status,
+  } = req.body;
 
-    const updateSql = `
-      UPDATE coupons 
-      SET code = ?, description = ?, discount_type = ?, discount_value = ?, 
-          min_order_total = ?, start_date = ?, end_date = ?, quantity = ?, status = ?
-      WHERE id = ?
-    `;
+  // Kiểm tra dữ liệu nhận được
+  console.log("ok");
 
-    await query(updateSql, [
+  // Truy vấn cập nhật mã giảm giá
+  db.query(
+    "UPDATE coupons SET code = ?, description = ?, discount_type = ?, discount_value = ?, min_order_total = ?, start_date = ?, end_date = ?, quantity = ?, status = ? WHERE id = ?",
+    [
       code,
       description,
       discount_type,
@@ -139,76 +168,104 @@ router.put("/update/:id", async (req, res) => {
       quantity,
       status,
       id,
-    ]);
+    ],
+    (err, result) => {
+      if (err) {
+        console.error("Lỗi cập nhật:", err);
+        return res
+          .status(500)
+          .json({ message: "Lỗi khi cập nhật mã giảm giá." });
+      }
 
-    const updatedCoupon = await query("SELECT * FROM coupons WHERE id = ?", [
-      id,
-    ]);
+      // Truy vấn lấy thông tin mã giảm giá đã cập nhật
+      db.query(
+        "SELECT * FROM coupons WHERE id = ?",
+        [id],
+        (err, updatedCoupon) => {
+          if (err) {
+            console.error("Lỗi khi lấy dữ liệu mã giảm giá:", err);
+            return res
+              .status(500)
+              .json({ message: "Lỗi khi lấy dữ liệu mã giảm giá." });
+          }
 
-    res.json({
-      message: "✅ Cập nhật thành công!",
-      updatedCoupon: updatedCoupon[0],
-    });
-  } catch (err) {
-    console.error("❌ Lỗi cập nhật coupon:", err);
-    res.status(500).json({ message: "Lỗi khi cập nhật mã giảm giá." });
-  }
+          // Trả về thông báo thành công
+          res.json({
+            message: "Cập nhật thành công!",
+            updatedCoupon: updatedCoupon[0],
+          });
+        }
+      );
+    }
+  );
 });
-
 // Xóa coupon
-router.delete("/delete/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-    await query("DELETE FROM coupons WHERE id = ?", [id]);
-    res.json({ message: "✅ Đã xoá mã giảm giá!" });
-  } catch (err) {
-    console.error("❌ Lỗi xoá coupon:", err);
-    res.status(500).json({ error: "Xoá coupon thất bại." });
-  }
+router.delete("/delete/:id", (req, res) => {
+  const { id } = req.params;
+
+  db.query("DELETE FROM coupons WHERE id = ?", [id], (err, result) => {
+    if (err) return res.status(500).json({ error: "Xóa coupon thất bại" });
+    res.json({ message: "✅ Đã xóa mã giảm giá ! " });
+  });
 });
 
 // Cập nhật trạng thái coupon
-router.patch("/update-status/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { status } = req.body;
+router.patch("/update-status/:id", (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
 
-    if (!["active", "inactive"].includes(status)) {
-      return res.status(400).json({ message: "Trạng thái không hợp lệ." });
-    }
+  console.log("Cập nhật trạng thái coupon:", { id, status });
 
-    await query("UPDATE coupons SET status = ? WHERE id = ?", [status, id]);
-
-    const updated = await query("SELECT * FROM coupons WHERE id = ?", [id]);
-
-    res.json({
-      message: "✅ Cập nhật trạng thái thành công!",
-      updatedCoupon: updated[0],
-    });
-  } catch (err) {
-    console.error("❌ Lỗi cập nhật trạng thái:", err);
-    res.status(500).json({ message: "Lỗi khi cập nhật trạng thái." });
+  if (status !== "active" && status !== "inactive") {
+    return res.status(400).json({ message: "Trạng thái không hợp lệ." });
   }
-});
 
-// Trừ quantity coupon khi sử dụng
-router.patch("/use/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const result = await query(
-      "UPDATE coupons SET quantity = quantity - 1 WHERE id = ? AND quantity > 0",
-      [id]
-    );
+  db.query(
+    "UPDATE coupons SET status = ? WHERE id = ?",
+    [status, id],
+    (err, result) => {
+      if (err) {
+        console.error("Chi tiết lỗi cập nhật:", err.sqlMessage || err);
+        return res
+          .status(500)
+          .json({ message: "Lỗi khi cập nhật trạng thái." });
+      }
+
+      db.query("SELECT * FROM coupons WHERE id = ?", [id], (err2, results) => {
+        if (err2) {
+          console.error("Lỗi khi lấy lại dữ liệu:", err2.sqlMessage || err2);
+          return res
+            .status(500)
+            .json({ message: "Lỗi khi lấy mã giảm giá sau cập nhật." });
+        }
+
+        res.json({
+          message: "Cập nhật trạng thái thành công!",
+          updatedCoupon: results[0],
+        });
+      });
+    }
+  );
+});
+// Trừ quantity của coupon theo ID
+// PATCH /api/coupons/use/:id
+router.patch("/use/:id", (req, res) => {
+  const { id } = req.params;
+
+  const sql =
+    "UPDATE coupons SET quantity = quantity - 1 WHERE id = ? AND quantity > 0";
+  db.query(sql, [id], (err, result) => {
+    if (err) {
+      console.error("Lỗi:", err);
+      return res.status(500).json({ message: "Lỗi máy chủ." });
+    }
 
     if (result.affectedRows === 0) {
       return res.status(400).json({ message: "Không thể sử dụng mã này nữa." });
     }
 
-    res.json({ message: "✅ Đã sử dụng mã thành công." });
-  } catch (err) {
-    console.error("❌ Lỗi khi sử dụng mã:", err);
-    res.status(500).json({ message: "Lỗi máy chủ khi sử dụng mã." });
-  }
+    res.json({ message: "Đã sử dụng mã thành công." });
+  });
 });
 
 module.exports = router;

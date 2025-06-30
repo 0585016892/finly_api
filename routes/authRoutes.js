@@ -6,95 +6,76 @@ const jwt = require("jsonwebtoken");
 
 const JWT_SECRET = process.env.JWT_SECRET || "your_jwt_secret";
 
-// Helper function dùng query dạng Promise
-const query = (sql, params = []) =>
-  new Promise((resolve, reject) => {
-    db.query(sql, params, (err, results) => {
-      if (err) return reject(err);
-      resolve(results);
-    });
-  });
-
-// ✅ Đăng nhập admin
+// Đăng nhập
 router.post("/login", async (req, res) => {
   const { email, password } = req.body;
 
-  try {
-    const users = await query(
-      `SELECT * FROM employees WHERE email = ? AND status = 'active'`,
-      [email]
-    );
-
-    if (users.length === 0) {
+  const sql = `SELECT * FROM employees WHERE email = ? AND status = 'active'`;
+  db.query(sql, [email], async (err, results) => {
+    if (err || results.length === 0)
       return res.status(401).json({ message: "Tài khoản không tồn tại" });
-    }
 
-    const user = users[0];
+    const user = results[0];
     const match = await bcrypt.compare(password, user.password);
     if (!match) return res.status(401).json({ message: "Sai mật khẩu" });
 
-    const perms = await query(
-      `
+    // Lấy danh sách quyền từ role
+    const permSQL = `
       SELECT p.name FROM permissions p
       JOIN role_permissions rp ON p.id = rp.permission_id
       WHERE rp.role_id = ?
-    `,
-      [user.role_id]
-    );
+    `;
+    db.query(permSQL, [user.role_id], (err, permRows) => {
+      if (err) return res.status(500).json({ message: "Lỗi khi lấy quyền" });
 
-    const permissions = perms.map((p) => p.name);
-    const token = jwt.sign(
-      {
-        id: user.id,
-        email: user.email,
-        role: user.role_id,
-        permissions,
-      },
-      JWT_SECRET,
-      { expiresIn: "1d" }
-    );
+      const permissions = permRows.map((p) => p.name);
+      const token = jwt.sign(
+        {
+          id: user.id,
+          email: user.email,
+          role: user.role_id,
+          permissions,
+        },
+        JWT_SECRET,
+        { expiresIn: "1d" }
+      );
 
-    res.json({
-      token,
-      user: {
-        id: user.id,
-        full_name: user.full_name,
-        email: user.email,
-        avatar: user.avatar,
-        phone: user.phone,
-        position: user.position,
-        department: user.department,
-        address: user.address,
-        status: user.status,
-        created_at: user.created_at,
-        role_id: user.role_id,
-        role: user.role,
-        permissions,
-      },
+      res.json({
+        token,
+        user: {
+          id: user.id,
+          full_name: user.full_name,
+          email: user.email,
+          avatar: user.avatar,
+          phone: user.phone,
+          position: user.position,
+          department: user.department,
+          address: user.address,
+          status: user.status,
+          created_at: user.created_at,
+          role_id: user.role_id,
+          role: user.role,
+          permissions: permissions,
+        },
+      });
     });
-  } catch (err) {
-    console.error("❌ Lỗi đăng nhập admin:", err);
-    res.status(500).json({ message: "Lỗi hệ thống khi đăng nhập" });
-  }
+  });
 });
-
-// ✅ Đăng nhập người dùng (customer)
+// Đăng nhập người dùng
 router.post("/user/login", async (req, res) => {
   const { email, password } = req.body;
 
-  try {
-    const users = await query(
-      `SELECT * FROM customers WHERE email = ? AND status = 'active'`,
-      [email]
-    );
+  const sql = `SELECT * FROM customers WHERE email = ? AND status = 'active'`;
+  db.query(sql, [email], async (err, results) => {
+    if (err) return res.status(500).json({ message: "Lỗi hệ thống" });
 
-    if (users.length === 0) {
+    if (results.length === 0) {
       return res
         .status(401)
         .json({ message: "Email không tồn tại hoặc đã bị khóa" });
     }
 
-    const user = users[0];
+    const user = results[0];
     const match = await bcrypt.compare(password, user.password);
     if (!match) {
       return res.status(401).json({ message: "Mật khẩu không chính xác" });
@@ -116,10 +97,7 @@ router.post("/user/login", async (req, res) => {
       token,
       user: userWithoutPassword,
     });
-  } catch (err) {
-    console.error("❌ Lỗi đăng nhập người dùng:", err);
-    res.status(500).json({ message: "Lỗi hệ thống khi đăng nhập" });
-  }
+  });
 });
 
 module.exports = router;

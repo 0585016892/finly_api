@@ -15,26 +15,25 @@ const storage = multer.diskStorage({
 });
 
 const upload = multer({ storage: storage });
-
-// Lấy danh sách footer cha
-router.get("/parents", async (req, res) => {
-  try {
-    const [footerP] = await db.query(
-      "SELECT * FROM footer_items WHERE parent_id IS NULL OR parent_id = 0"
-    );
+//dm con
+router.get("/parents", (req, res) => {
+  const sql =
+    "SELECT * FROM footer_items  WHERE parent_id IS NULL OR parent_id = 0"; // Giả sử bảng của bạn là 'categories'
+  db.query(sql, (err, footerP) => {
+    if (err) {
+      return res.status(500).json({ error: "Lỗi khi lấy danh mục" });
+    }
     res.json({ footerP });
-  } catch (err) {
-    res.status(500).json({ error: "Lỗi khi lấy danh mục" });
-  }
+  });
 });
-
-// Lấy tất cả footer hoặc lọc theo từ khóa
+// 1. Lấy tất cả footer hoặc lọc theo từ khóa
 router.get("/", async (req, res) => {
   const { keyword = "", page = 1, limit = 10 } = req.query;
   const currentPage = parseInt(page);
   const perPage = parseInt(limit);
 
   try {
+    // 1. Lấy toàn bộ dữ liệu
     let query = "SELECT * FROM footer_items WHERE 1";
     const params = [];
 
@@ -45,6 +44,7 @@ router.get("/", async (req, res) => {
 
     const [allFooters] = await db.promise().query(query, params);
 
+    // 2. Tạo map để gom con theo parent_id
     const footerMap = {};
     const groupedParents = [];
 
@@ -61,6 +61,7 @@ router.get("/", async (req, res) => {
       }
     });
 
+    // 3. Phân trang danh sách cha (đã gắn children)
     const totalFooters = groupedParents.length;
     const totalPages = Math.ceil(totalFooters / perPage);
     const paginatedParents = groupedParents.slice(
@@ -80,76 +81,93 @@ router.get("/", async (req, res) => {
   }
 });
 
-// Thêm footer
-router.post("/add", upload.none(), async (req, res) => {
+router.post("/add", upload.none(), (req, res) => {
   const { title, label, value, type, parent_id, status } = req.body;
 
+  // Kiểm tra thông tin nhập vào
   if (!title || !label || !value || !type || !status) {
     return res.status(400).json({
       error: "Vui lòng nhập đầy đủ tên, slug và trạng thái danh mục.",
     });
   }
 
-  const sql = `INSERT INTO footer_items (title, label, value, type, parent_id, status) VALUES (?, ?, ?, ?, ?, ?)`;
+  // SQL query để thêm danh mục vào cơ sở dữ liệu
+  const sql = `
+    INSERT INTO footer_items (title, label, value, type, parent_id, status)
+                 VALUES (?, ?, ?, ?, ?, ?)
+  `;
 
-  try {
-    const [result] = await db.query(sql, [
-      title,
-      label,
-      value,
-      type,
-      parent_id,
-      status,
-    ]);
-    res.status(201).json({
-      message: "✅ Footer đã được thêm thành công!",
-      category_id: result.insertId,
-    });
-  } catch (err) {
-    console.error("❌ Lỗi khi thêm danh mục:", err);
-    res
-      .status(500)
-      .json({ error: "Đã xảy ra lỗi khi thêm danh mục vào cơ sở dữ liệu." });
-  }
+  // Thực hiện query vào cơ sở dữ liệu
+  db.query(
+    sql,
+    [title, label, value, type, parent_id, status],
+    (err, result) => {
+      if (err) {
+        console.error("❌ Lỗi khi thêm danh mục:", err);
+        return res.status(500).json({
+          error: "Đã xảy ra lỗi khi thêm danh mục vào cơ sở dữ liệu.",
+        });
+      }
+
+      // Phản hồi thành công
+      res.status(201).json({
+        message: "✅ Footer đã được thêm thành công!",
+        category_id: result.insertId,
+      });
+    }
+  );
 });
-
-// Cập nhật footer theo ID
-router.put("/update/:id", async (req, res) => {
+// 3. Sửa thông tin footer theo ID (có xử lý ảnh)
+router.put("/update/:id", (req, res) => {
   const { id } = req.params;
   const { title, label, status } = req.body;
 
+  // Kiểm tra nếu các trường bắt buộc không có dữ liệu
   if (!title || !status) {
     return res
       .status(400)
       .json({ error: "Tiêu đề, và trạng thái là bắt buộc." });
   }
 
-  const sql = `UPDATE footer_items SET title = ?, label = ?, status = ? WHERE id = ?`;
+  const sql = `
+    UPDATE footer_items 
+    SET 
+      title = ?, 
+      label = ?, 
+      status = ?
+    WHERE id = ?
+  `;
 
-  try {
-    const [result] = await db.promise().query(sql, [title, label, status, id]);
+  db.query(sql, [title, label, status, id], (err, result) => {
+    if (err) {
+      console.error("❌ Lỗi khi cập nhật:", err);
+      return res
+        .status(500)
+        .json({ error: "Lỗi khi cập nhật vào cơ sở dữ liệu." });
+    }
 
     if (result.affectedRows === 0) {
       return res.status(404).json({ error: "Không tìm thấy với ID này." });
     }
 
-    res
-      .status(200)
-      .json({ message: "✅ Cập nhật thành công!", updated_footer_id: id });
-  } catch (err) {
-    console.error("❌ Lỗi khi cập nhật:", err);
-    res.status(500).json({ error: "Lỗi khi cập nhật vào cơ sở dữ liệu." });
-  }
+    // Trả về phản hồi thành công với thông báo chi tiết
+    res.status(200).json({
+      message: "✅ Cập nhật thành công!",
+      updated_footer_id: id,
+    });
+  });
 });
-
-// Xóa footer theo ID (bao gồm cả con)
+// 4. Xóa footer theo ID
 router.delete("/delete/:id", async (req, res) => {
   const { id } = req.params;
 
   try {
-    const sql = `DELETE FROM footer_items WHERE id = ? OR parent_id = ?`;
+    const sql = `
+      DELETE FROM footer_items
+      WHERE id = ?
+         OR parent_id = ?
+    `;
     const [result] = await db.promise().query(sql, [id, id]);
-
     if (result.affectedRows > 0) {
       return res.json({ message: "Đã xóa mục cha và tất cả mục con." });
     } else {
@@ -161,9 +179,10 @@ router.delete("/delete/:id", async (req, res) => {
   }
 });
 
-// Lấy footer theo ID
+// 5. Lấy footer theo ID
 router.get("/:id", async (req, res) => {
   const { id } = req.params;
+
   const query = "SELECT * FROM footer_items WHERE id = ?";
 
   try {
@@ -180,7 +199,7 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-// Cập nhật trạng thái footer
+// 6. Cập nhật trạng thái footer theo ID
 router.patch("/status/:id", async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;

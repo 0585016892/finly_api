@@ -3,41 +3,32 @@ const router = express.Router();
 const db = require("../db");
 const nodemailer = require("nodemailer");
 const moment = require("moment");
-
-const query = (sql, params = []) =>
-  new Promise((resolve, reject) => {
-    db.query(sql, params, (err, results) => {
-      if (err) return reject(err);
-      resolve(results);
-    });
-  });
-
-router.get("/", async (req, res) => {
+// Lấy danh sách chấm công theo user_id
+router.get("/", (req, res) => {
   const { user_id, work_date } = req.query;
 
   if (!user_id)
     return res.status(400).json({ success: false, message: "Thiếu user_id" });
 
-  try {
-    let sql = "SELECT * FROM attendances WHERE user_id = ?";
-    let params = [user_id];
+  let query = "SELECT * FROM attendances WHERE user_id = ?";
+  let params = [user_id];
 
-    if (work_date) {
-      sql += " AND DATE(work_date) = ?";
-      params.push(work_date);
-    }
-
-    const results = await query(sql, params);
-    res.json(results);
-  } catch (err) {
-    console.error("Lỗi SQL:", err);
-    res
-      .status(500)
-      .json({ success: false, message: "Lỗi truy vấn", error: err });
+  if (work_date) {
+    query += " AND DATE(work_date) = ?";
+    params.push(work_date);
   }
-});
 
-router.get("/month", async (req, res) => {
+  db.query(query, params, (err, results) => {
+    if (err) {
+      console.error("Lỗi SQL:", err);
+      return res
+        .status(500)
+        .json({ success: false, message: "Lỗi truy vấn", error: err });
+    }
+    res.json(results);
+  });
+});
+router.get("/month", (req, res) => {
   const user_id = Number(req.query.user_id);
   const year = Number(req.query.year);
   const month = Number(req.query.month);
@@ -48,27 +39,31 @@ router.get("/month", async (req, res) => {
       .json({ message: "Thiếu user_id hoặc year hoặc month" });
   }
 
-  try {
-    const lastDay = new Date(year, month, 0).getDate();
-    const monthStr = month.toString().padStart(2, "0");
-    const startDate = `${year}-${monthStr}-01`;
-    const endDate = `${year}-${monthStr}-${lastDay
-      .toString()
-      .padStart(2, "0")}`;
+  // Tính ngày cuối tháng chính xác
+  const lastDay = new Date(year, month, 0).getDate(); // tháng trong JS từ 1-12 nhưng Date() nhận 0-based
 
-    const results = await query(
-      `SELECT DISTINCT DATE(work_date) AS day FROM attendances WHERE user_id = ? AND work_date BETWEEN ? AND ?`,
-      [user_id, startDate, endDate]
-    );
+  const monthStr = month.toString().padStart(2, "0");
+  const startDate = `${year}-${monthStr}-01`;
+  const endDate = `${year}-${monthStr}-${lastDay.toString().padStart(2, "0")}`;
+
+  const sql = `
+    SELECT DISTINCT DATE(work_date) AS day
+    FROM attendances
+    WHERE user_id = ?
+      AND work_date BETWEEN ? AND ?
+  `;
+
+  db.query(sql, [user_id, startDate, endDate], (err, results) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ message: "Lỗi truy vấn" });
+    }
 
     const days = results.map((r) => r.day.toISOString().split("T")[0]);
     res.json(days);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Lỗi truy vấn" });
-  }
+  });
 });
-
+// Tính số giờ làm thực tế (trừ nghỉ trưa nếu có)
 function calculateWorkHours(checkIn, checkOut) {
   const inTime = moment(checkIn);
   const outTime = moment(checkOut);
@@ -80,13 +75,12 @@ function calculateWorkHours(checkIn, checkOut) {
   let totalMinutes = duration.asMinutes();
 
   if (inTime.isBefore(noonEnd) && outTime.isAfter(noonStart)) {
-    totalMinutes -= 60;
+    totalMinutes -= 60; // nghỉ trưa
   }
 
   return parseFloat((totalMinutes / 60).toFixed(2));
 }
-
-router.get("/salary", async (req, res) => {
+router.get("/salary", (req, res) => {
   const user_id = Number(req.query.user_id);
   const year = Number(req.query.year);
   const month = Number(req.query.month);
@@ -99,24 +93,24 @@ router.get("/salary", async (req, res) => {
       .json({ message: "Thiếu user_id hoặc year hoặc month" });
   }
 
-  try {
-    const lastDay = new Date(year, month, 0).getDate();
-    const monthStr = month.toString().padStart(2, "0");
-    const startDate = `${year}-${monthStr}-01`;
-    const endDate = `${year}-${monthStr}-${lastDay
-      .toString()
-      .padStart(2, "0")}`;
+  const lastDay = new Date(year, month, 0).getDate();
+  const monthStr = month.toString().padStart(2, "0");
+  const startDate = `${year}-${monthStr}-01`;
+  const endDate = `${year}-${monthStr}-${lastDay.toString().padStart(2, "0")}`;
 
-    const rows = await query(
-      `SELECT * FROM attendances WHERE user_id = ? AND work_date BETWEEN ? AND ?`,
-      [user_id, startDate, endDate]
-    );
+  const sql = `
+    SELECT * FROM attendances
+    WHERE user_id = ? AND work_date BETWEEN ? AND ?
+  `;
 
-    let tongGio = 0,
-      soNgayCong = 0,
-      soLanTre = 0,
-      soLanVeSom = 0,
-      tongGioTangCa = 0;
+  db.query(sql, [user_id, startDate, endDate], (err, rows) => {
+    if (err) return res.status(500).json({ message: "Lỗi truy vấn", err });
+
+    let tongGio = 0;
+    let soNgayCong = 0;
+    let soLanTre = 0;
+    let soLanVeSom = 0;
+    let tongGioTangCa = 0;
 
     rows.forEach((r) => {
       if (!r.check_in_time || !r.check_out_time) return;
@@ -127,11 +121,19 @@ router.get("/salary", async (req, res) => {
       const checkIn = moment(r.check_in_time);
       const checkOut = moment(r.check_out_time);
 
-      if (checkIn.isAfter(moment(checkIn).hour(8).minute(30))) soLanTre++;
-      if (checkOut.isBefore(moment(checkOut).hour(17).minute(30))) soLanVeSom++;
-      if (workHours > 8) tongGioTangCa += workHours - 8;
+      if (checkIn.isAfter(moment(checkIn).hour(8).minute(30))) {
+        soLanTre += 1;
+      }
 
-      soNgayCong++;
+      if (checkOut.isBefore(moment(checkOut).hour(17).minute(30))) {
+        soLanVeSom += 1;
+      }
+
+      if (workHours > 8) {
+        tongGioTangCa += workHours - 8;
+      }
+
+      soNgayCong += 1;
     });
 
     const luongNgay = soNgayCong * salaryPerDay;
@@ -148,12 +150,11 @@ router.get("/salary", async (req, res) => {
       luongTangCa,
       tongLuong,
     });
-  } catch (err) {
-    res.status(500).json({ message: "Lỗi truy vấn", err });
-  }
+  });
 });
-
-router.post("/save", async (req, res) => {
+// Lưu lương
+// POST /api/salary/save
+router.post("/save", (req, res) => {
   const {
     user_id,
     full_name,
@@ -176,36 +177,45 @@ router.post("/save", async (req, res) => {
       .json({ success: false, message: "Thiếu thông tin bắt buộc" });
   }
 
-  try {
-    await query(
-      `INSERT INTO salaries (
-        user_id, year, month, soNgayCong, tongGio, soLanTre, soLanVeSom,
-        tongGioTangCa, luongNgay, luongTangCa, tongLuong
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      ON DUPLICATE KEY UPDATE
-        soNgayCong = VALUES(soNgayCong),
-        tongGio = VALUES(tongGio),
-        soLanTre = VALUES(soLanTre),
-        soLanVeSom = VALUES(soLanVeSom),
-        tongGioTangCa = VALUES(tongGioTangCa),
-        luongNgay = VALUES(luongNgay),
-        luongTangCa = VALUES(luongTangCa),
-        tongLuong = VALUES(tongLuong)`,
-      [
-        user_id,
-        year,
-        month,
-        soNgayCong,
-        tongGio,
-        soLanTre,
-        soLanVeSom,
-        tongGioTangCa,
-        luongNgay,
-        luongTangCa,
-        tongLuong,
-      ]
-    );
+  const sql = `
+    INSERT INTO salaries (
+      user_id, year, month, soNgayCong, tongGio, soLanTre, soLanVeSom,
+      tongGioTangCa, luongNgay, luongTangCa, tongLuong
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON DUPLICATE KEY UPDATE
+      soNgayCong = VALUES(soNgayCong),
+      tongGio = VALUES(tongGio),
+      soLanTre = VALUES(soLanTre),
+      soLanVeSom = VALUES(soLanVeSom),
+      tongGioTangCa = VALUES(tongGioTangCa),
+      luongNgay = VALUES(luongNgay),
+      luongTangCa = VALUES(luongTangCa),
+      tongLuong = VALUES(tongLuong)
+  `;
 
+  const params = [
+    user_id,
+    year,
+    month,
+    soNgayCong,
+    tongGio,
+    soLanTre,
+    soLanVeSom,
+    tongGioTangCa,
+    luongNgay,
+    luongTangCa,
+    tongLuong,
+  ];
+
+  db.query(sql, params, (err, result) => {
+    if (err) {
+      console.error("❌ Lỗi SQL:", err);
+      return res
+        .status(500)
+        .json({ success: false, message: "Lỗi lưu lương", error: err.message });
+    }
+
+    // ✅ Gửi email thông báo lương
     const transporter = nodemailer.createTransport({
       host: process.env.EMAIL_HOST,
       port: Number(process.env.EMAIL_PORT),
@@ -236,25 +246,34 @@ router.post("/save", async (req, res) => {
       Phòng Nhân sự
     `.trim();
 
-    await transporter.sendMail({
-      from: `"HR Finly" <${process.env.EMAIL_USER}>`,
-      to: email,
-      subject: `Bảng lương tháng ${month}/${year} của bạn`,
-      text: content,
-    });
+    transporter.sendMail(
+      {
+        from: `"HR Finly" <${process.env.EMAIL_USER}>`,
+        to: email,
+        subject: `Bảng lương tháng ${month}/${year} của bạn`,
+        text: content,
+      },
+      (mailErr) => {
+        if (mailErr) {
+          console.error("❌ Gửi email lỗi:", mailErr);
+          return res.status(500).json({
+            success: false,
+            message: "Lưu lương OK nhưng gửi mail lỗi",
+            error: mailErr.message,
+          });
+        }
 
-    res.json({ success: true, message: "Lưu và gửi email lương thành công" });
-  } catch (err) {
-    console.error("❌ Lỗi lưu/gửi email:", err);
-    res.status(500).json({
-      success: false,
-      message: "Lỗi khi lưu hoặc gửi mail",
-      error: err.message,
-    });
-  }
+        res.json({
+          success: true,
+          message: "Lưu và gửi email lương thành công",
+        });
+      }
+    );
+  });
 });
 
-router.get("/check", async (req, res) => {
+// Kiểm tra đã lưu lương chưa
+router.get("/check", (req, res) => {
   const { user_id, year, month } = req.query;
 
   if (!user_id || !year || !month) {
@@ -263,16 +282,12 @@ router.get("/check", async (req, res) => {
       .json({ success: false, message: "Thiếu thông tin kiểm tra" });
   }
 
-  try {
-    const rows = await query(
-      `SELECT id FROM salaries WHERE user_id = ? AND year = ? AND month = ? LIMIT 1`,
-      [user_id, year, month]
-    );
-
+  const sql = `SELECT id FROM salaries WHERE user_id = ? AND year = ? AND month = ? LIMIT 1`;
+  db.query(sql, [user_id, year, month], (err, rows) => {
+    if (err)
+      return res.status(500).json({ success: false, message: "Lỗi kiểm tra" });
     return res.json({ saved: rows.length > 0 });
-  } catch (err) {
-    return res.status(500).json({ success: false, message: "Lỗi kiểm tra" });
-  }
+  });
 });
 
 module.exports = router;
