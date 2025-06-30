@@ -57,6 +57,7 @@ const chamcongRoutes = require("./routes/chamcongRoutes");
 const sizeRoutes = require("./routes/sizeRoutes");
 const colorRoutes = require("./routes/colorRoutes");
 const faceRoutes = require("./routes/faceRoutes");
+const autoReplyRoutes = require("./routes/autoReply");
 // API Routes
 app.use("/api/slides", slideRoutes);
 app.use("/api/footer", footerRoutes);
@@ -77,6 +78,7 @@ app.use("/api/chamcong", chamcongRoutes);
 app.use("/api/size", sizeRoutes);
 app.use("/api/colors", colorRoutes);
 app.use("/api/face", faceRoutes);
+app.use("/api/ai", autoReplyRoutes);
 
 app.get("/api/test", (req, res) => {
   res.send("✅ Backend hoạt động");
