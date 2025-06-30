@@ -59,7 +59,7 @@ router.post("/import-excel", upload.single("file"), (req, res) => {
   
       const values = data.map((row) => [row.keyword, row.reply]);
   
-      const sql = "INSERT INTO auto_reply (keyword, reply) VALUES ?";
+      const sql = "INSERT INTO chatbot_replies (keyword, reply) VALUES ?";
       db.query(sql, [values], (err, result) => {
         if (err) {
           console.error("❌ Import lỗi:", err);
