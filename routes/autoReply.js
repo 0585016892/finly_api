@@ -96,7 +96,7 @@ router.post("/import-excel", upload.single("file"), (req, res) => {
   }
 });
 // API: Tự động sinh rule từ GPT và lưu vào DB
-router.post("/suggest_gemini", async (req, res) => {
+router.post("/suggest_gemini_a", async (req, res) => {
   try {
     const { prompt } = req.body;
 
