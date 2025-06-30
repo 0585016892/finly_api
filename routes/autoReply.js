@@ -51,26 +51,36 @@ router.delete("/delete/:id", (req, res) => {
   });
 });
 
-router.post("/import-excel", upload.single("file"), (req, res) => {
-    try {
-      const workbook = xlsx.read(req.file.buffer, { type: "buffer" });
-      const sheet = workbook.Sheets[workbook.SheetNames[0]];
-      const data = xlsx.utils.sheet_to_json(sheet);
-  
-      const values = data.map((row) => [row.keyword, row.reply]);
-  
-      const sql = "INSERT INTO chatbot_replies (keyword, reply) VALUES ?";
-      db.query(sql, [values], (err, result) => {
-        if (err) {
-          console.error("❌ Import lỗi:", err);
-          return res.status(500).json({ success: false, error: err.message });
-        }
-        res.json({ success: true, inserted: result.affectedRows });
-      });
-    } catch (err) {
-      console.error("❌ Lỗi xử lý file Excel:", err);
-      res.status(500).json({ success: false, error: "Định dạng file không hợp lệ" });
-    }
-  });
 
+router.post("/import-excel", upload.single("file"), (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: "Không có file được tải lên" });
+    }
+
+    const workbook = xlsx.read(req.file.buffer, { type: "buffer" });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const data = xlsx.utils.sheet_to_json(sheet);
+
+    console.log("📄 Dữ liệu đọc từ Excel:", data); // ✅ debug
+
+    if (!data || !Array.isArray(data) || data.length === 0) {
+      return res.status(400).json({ success: false, message: "File không chứa dữ liệu hợp lệ" });
+    }
+
+    const values = data.map((row) => [row.keyword, row.reply]);
+
+    const sql = "INSERT INTO chatbot_replies (keyword, reply) VALUES ?";
+    db.query(sql, [values], (err, result) => {
+      if (err) {
+        console.error("❌ Import lỗi:", err);
+        return res.status(500).json({ success: false, error: err.message });
+      }
+      res.json({ success: true, inserted: result.affectedRows });
+    });
+  } catch (err) {
+    console.error("❌ Lỗi xử lý file Excel:", err);
+    res.status(500).json({ success: false, error: "Định dạng file không hợp lệ" });
+  }
+});
 module.exports = router;
