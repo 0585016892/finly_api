@@ -18,6 +18,7 @@ const io = new Server(server, {
 // Middleware
 const allowedOrigins = [
   "http://localhost:3000",
+  "http://localhost:3001",
   "https://www.finlyshop.site", 
   "https://finlyshop.site"
 ];
