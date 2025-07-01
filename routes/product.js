@@ -216,7 +216,7 @@ router.post(
         status,
         brand,
         categoryId,
-        couponId,
+        couponId && couponId !== "" ? couponId : null,
       ],
       (err, result) => {
         if (err) {
