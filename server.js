@@ -19,6 +19,7 @@ const io = new Server(server, {
 const allowedOrigins = [
   "http://localhost:3000",
   "http://localhost:3001",
+  "https://quantri.vercel.app",
   "https://www.finlyshop.site", 
   "https://finlyshop.site"
 ];
