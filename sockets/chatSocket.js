@@ -34,8 +34,8 @@ function chatSocket(io) {
         }
 
         const p = prods[0];
-        const link = `http://localhost:3001/product/${p.slug}`;
-        const img = `http://localhost:5000/uploads/${p.image}`;
+        const link = `https://www.finlyshop.site/product/${p.slug}`;
+        const img = `https://finlyapi-production.up.railway.app/uploads/${p.image}`;
         const reply = `✔️ Sản phẩm **${p.name}** hiện đang có hàng.\nXem tại: ${link}`;
         callback({ content: reply, image: img });
       });
