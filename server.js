@@ -60,6 +60,7 @@ const sizeRoutes = require("./routes/sizeRoutes");
 const colorRoutes = require("./routes/colorRoutes");
 const faceRoutes = require("./routes/faceRoutes");
 const autoReplyRoutes = require("./routes/autoReply");
+const postRoutes = require("./routes/postRoutes");
 // API Routes
 app.use("/api/slides", slideRoutes);
 app.use("/api/footer", footerRoutes);
@@ -81,6 +82,7 @@ app.use("/api/size", sizeRoutes);
 app.use("/api/colors", colorRoutes);
 app.use("/api/face", faceRoutes);
 app.use("/api/ai", autoReplyRoutes);
+app.use("/api/posts", postRoutes);
 
 app.get("/api/test", (req, res) => {
   res.send("✅ Backend hoạt động");

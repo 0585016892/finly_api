@@ -19,29 +19,23 @@ const pool = mysql.createPool({
 console.log("✅ MySQL pool đã sẵn sàng");
 
 module.exports = pool;
+// 📁 db.js
 // const mysql = require("mysql2");
 // const dotenv = require("dotenv");
 // dotenv.config();
 
-// const db = mysql.createConnection({
-//   host: process.env.MYSQLHOST,
-//   port: process.env.MYSQLPORT,
-//   user: process.env.MYSQLUSER,
-//   password: process.env.MYSQLPASSWORD,
-//   database: process.env.MYSQLDATABASE,
-//   ssl: {
-//     // Chấp nhận chứng chỉ tự ký (KHÔNG an toàn cho production thật sự)
-//     rejectUnauthorized: false,
-//   },
+// const pool = mysql.createPool({
+//   host: process.env.MYSQLHOST || "localhost",
+//   user: process.env.MYSQLUSER || "root",
+//   password: process.env.MYSQLPASSWORD || "",
+//   database: process.env.MYSQLDATABASE || "node_api",
+//   port: process.env.MYSQLPORT || 3306,
+//   ssl: false, // ❌ Tắt SSL vì local không cần
 //   waitForConnections: true,
-//   connectionLimit: 10, // số lượng connection tối đa
-//   queueLimit: 0, // không giới hạn số lượng request đang chờ
+//   connectionLimit: 10,
+//   queueLimit: 0,
 // });
 
-// db.connect((err) => {
-//   if (err) {
-//     console.error("❌ Kết nối MySQL thất bại:", err.message);
-//     return;
-//   }
-//   console.log("✅ Đã kết nối MySQL");
-// });
+// console.log("✅ MySQL pool đã sẵn sàng (Local)");
+
+// module.exports = pool;
