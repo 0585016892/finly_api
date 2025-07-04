@@ -83,7 +83,7 @@ router.get("/", async (req, res) => {
 
 router.post("/add", upload.none(), (req, res) => {
   const { title, label, value, type, parent_id, status } = req.body;
-
+  const finalParentId = parent_id && parent_id !== "" ? Number(parent_id) : null;
   // Kiểm tra thông tin nhập vào
   if (!title || !label || !value || !type || !status) {
     return res.status(400).json({
@@ -99,7 +99,7 @@ router.post("/add", upload.none(), (req, res) => {
   // Thực hiện query vào cơ sở dữ liệu
   db.query(
     sql,
-    [title, label, value, type, parent_id, status],
+    [title, label, value, type, finalParentId, status],
     (err, result) => {
       if (err) {
         console.error("Lỗi khi thêm danh mục:", err);
