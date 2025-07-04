@@ -93,8 +93,7 @@ router.post("/add", upload.none(), (req, res) => {
 
   // SQL query để thêm danh mục vào cơ sở dữ liệu
   const sql = `
-    INSERT INTO footer_items (title, label, value, type, parent_id, status)
-                 VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO footer_items (title, label, value, type, parent_id, status) VALUES (?, ?, ?, ?, ?, ?)
   `;
 
   // Thực hiện query vào cơ sở dữ liệu
