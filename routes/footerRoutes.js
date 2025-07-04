@@ -93,13 +93,13 @@ router.post("/add", upload.none(), (req, res) => {
 
   // SQL query để thêm danh mục vào cơ sở dữ liệu
   const sql = `
-    INSERT INTO footer_items (title, label, value, type, parent_id, status) VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO footer_items (title, label, value, type, parent_id, status,icon) VALUES (?, ?, ?, ?, ?, ?,?)
   `;
 
   // Thực hiện query vào cơ sở dữ liệu
   db.query(
     sql,
-    [title, label, value, type, finalParentId, status],
+    [title, label, value, type, finalParentId, status,0],
     (err, result) => {
       if (err) {
         console.error("Lỗi khi thêm danh mục:", err);
