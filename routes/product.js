@@ -81,7 +81,7 @@ router.get("/products/:slug", (req, res) => {
 
   db.query(productSql, [slug], (err, results) => {
     if (err) {
-      console.error("❌ Lỗi khi lấy sản phẩm:", err);
+      console.error("Lỗi khi lấy sản phẩm:", err);
       return res.status(500).json({ message: "Lỗi máy chủ" });
     }
 
@@ -96,7 +96,7 @@ router.get("/products/:slug", (req, res) => {
 
     db.query(subImgSql, [product.id], (imgErr, imgResults) => {
       if (imgErr) {
-        console.error("❌ Lỗi khi lấy ảnh phụ:", imgErr);
+        console.error("Lỗi khi lấy ảnh phụ:", imgErr);
         return res.status(500).json({ message: "Lỗi khi lấy ảnh phụ" });
       }
 
@@ -220,7 +220,7 @@ router.post(
       ],
       (err, result) => {
         if (err) {
-          console.error("❌ Lỗi khi thêm sản phẩm:", err);
+          console.error("Lỗi khi thêm sản phẩm:", err);
           return res
             .status(500)
             .json({ error: "Lỗi khi thêm sản phẩm vào cơ sở dữ liệu." });
@@ -233,18 +233,18 @@ router.post(
           const values = subImages.map((f) => [result.insertId, f.filename]);
           db.query(subImgSQL, [values], (err2) => {
             if (err2) {
-              console.error("❌ Lỗi khi lưu ảnh phụ:", err2);
+              console.error("Lỗi khi lưu ảnh phụ:", err2);
               return res.status(500).json({ error: "Lỗi khi lưu ảnh phụ." });
             }
             res.status(201).json({
-              message: "✅ Thêm sản phẩm và ảnh phụ thành công!",
+              message: "Thêm sản phẩm và ảnh phụ thành công!",
               product_id: result.insertId,
               image: image,
             });
           });
         } else {
           res.status(201).json({
-            message: "✅ Thêm sản phẩm thành công!",
+            message: "Thêm sản phẩm thành công!",
             product_id: result.insertId,
             image: image,
           });
@@ -312,7 +312,7 @@ router.get("/", (req, res) => {
   // Thực thi truy vấn đếm số lượng sản phẩm
   db.query(sqlCount, (err, countResults) => {
     if (err) {
-      console.error("❌ Lỗi khi lấy tổng số sản phẩm:", err);
+      console.error("Lỗi khi lấy tổng số sản phẩm:", err);
       return res.status(500).json({ error: "Lỗi khi lấy tổng số sản phẩm." });
     }
 
@@ -322,7 +322,7 @@ router.get("/", (req, res) => {
     // Thực thi truy vấn lấy sản phẩm
     db.query(sqlProducts, (err, products) => {
       if (err) {
-        console.error("❌ Lỗi khi lấy danh sách sản phẩm:", err);
+        console.error("Lỗi khi lấy danh sách sản phẩm:", err);
         return res
           .status(500)
           .json({ error: "Lỗi khi lấy danh sách sản phẩm." });
@@ -359,7 +359,7 @@ router.get("/:id", (req, res) => {
 
   db.query(productSql, [id], (err, results) => {
     if (err) {
-      console.error("❌ Lỗi khi lấy sản phẩm theo ID:", err);
+      console.error("Lỗi khi lấy sản phẩm theo ID:", err);
       return res.status(500).json({ error: "Lỗi khi lấy dữ liệu sản phẩm." });
     }
 
@@ -376,7 +376,7 @@ router.get("/:id", (req, res) => {
 
     db.query(subImagesSql, [id], (err2, subImageResults) => {
       if (err2) {
-        console.error("❌ Lỗi khi lấy ảnh phụ:", err2);
+        console.error("Lỗi khi lấy ảnh phụ:", err2);
         return res.status(500).json({ error: "Lỗi khi lấy ảnh phụ." });
       }
 
@@ -438,7 +438,7 @@ router.put("/update/:id", upload.single("image"), (req, res) => {
     ],
     (err, result) => {
       if (err) {
-        console.error("❌ Lỗi khi cập nhật sản phẩm:", err);
+        console.error("Lỗi khi cập nhật sản phẩm:", err);
         return res
           .status(500)
           .json({ error: "Lỗi khi cập nhật sản phẩm vào cơ sở dữ liệu." });
@@ -451,7 +451,7 @@ router.put("/update/:id", upload.single("image"), (req, res) => {
       }
 
       res.status(200).json({
-        message: "✅ Cập nhật sản phẩm thành công!",
+        message: "Cập nhật sản phẩm thành công!",
         updated_product_id: id,
       });
     }
@@ -465,17 +465,17 @@ router.delete("/delete/:id", (req, res) => {
 
   db.query(sql, [id], (err, result) => {
     if (err) {
-      console.error("❌ Lỗi khi xóa sản phẩm:", err);
+      console.error("Lỗi khi xóa sản phẩm:", err);
       return res.status(500).json({ error: "Lỗi khi xóa sản phẩm." });
     }
 
     if (result.affectedRows === 0) {
       return res
         .status(404)
-        .json({ message: "❌ Không tìm thấy sản phẩm để xóa." });
+        .json({ message: "Không tìm thấy sản phẩm để xóa." });
     }
 
-    res.status(200).json({ message: `✅ Xóa sản phẩm thành công!` });
+    res.status(200).json({ message: `Xóa sản phẩm thành công!` });
   });
 });
 

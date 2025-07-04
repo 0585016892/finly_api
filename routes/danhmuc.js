@@ -116,7 +116,7 @@ router.post("/add", upload.none(), (req, res) => {
     [name, slug, parent_id || null, description || "", status],
     (err, result) => {
       if (err) {
-        console.error("❌ Lỗi khi thêm danh mục:", err);
+        console.error("Lỗi khi thêm danh mục:", err);
         return res.status(500).json({
           error: "Đã xảy ra lỗi khi thêm danh mục vào cơ sở dữ liệu.",
         });
@@ -124,7 +124,7 @@ router.post("/add", upload.none(), (req, res) => {
 
       // Phản hồi thành công
       res.status(201).json({
-        message: "✅ Danh mục đã được thêm thành công!",
+        message: "Danh mục đã được thêm thành công!",
         category_id: result.insertId,
       });
     }
@@ -154,7 +154,7 @@ router.get("/", (req, res) => {
 
   db.query(sqlCount, (err, countResults) => {
     if (err) {
-      console.error("❌ Lỗi khi lấy số lượng danh mục:", err);
+      console.error("Lỗi khi lấy số lượng danh mục:", err);
       return res.status(500).json({ error: "Lỗi khi lấy tổng số danh mục." });
     }
 
@@ -163,7 +163,7 @@ router.get("/", (req, res) => {
 
     db.query(sqlCategories, (err, categories) => {
       if (err) {
-        console.error("❌ Lỗi khi lấy danh mục:", err);
+        console.error("Lỗi khi lấy danh mục:", err);
         return res
           .status(500)
           .json({ error: "Lỗi khi lấy dữ liệu danh mục từ cơ sở dữ liệu." });
@@ -187,7 +187,7 @@ router.get("/:id", (req, res) => {
 
   db.query(sql, [id], (err, results) => {
     if (err) {
-      console.error("❌ Lỗi khi lấy danh mục theo ID:", err);
+      console.error("Lỗi khi lấy danh mục theo ID:", err);
       return res
         .status(500)
         .json({ error: "Lỗi khi lấy dữ liệu danh mục từ cơ sở dữ liệu." });
@@ -227,7 +227,7 @@ router.put("/update/:id", (req, res) => {
 
   db.query(sql, [name, slug, description || "", status, id], (err, result) => {
     if (err) {
-      console.error("❌ Lỗi khi cập nhật danh mục:", err);
+      console.error("Lỗi khi cập nhật danh mục:", err);
       return res
         .status(500)
         .json({ error: "Lỗi khi cập nhật danh mục vào cơ sở dữ liệu." });
@@ -241,7 +241,7 @@ router.put("/update/:id", (req, res) => {
 
     // Trả về phản hồi thành công với thông báo chi tiết
     res.status(200).json({
-      message: "✅ Cập nhật danh mục thành công!",
+      message: "Cập nhật danh mục thành công!",
       updated_category_id: id,
     });
   });
@@ -254,17 +254,17 @@ router.delete("/delete/:id", (req, res) => {
 
   db.query(sql, [id], (err, result) => {
     if (err) {
-      console.error("❌ Lỗi khi xóa danh mục:", err);
+      console.error("Lỗi khi xóa danh mục:", err);
       return res.status(500).json({ error: "Lỗi khi xóa danh mục." });
     }
 
     if (result.affectedRows === 0) {
       return res
         .status(404)
-        .json({ message: "❌ Không tìm thấy danh mục để xóa." });
+        .json({ message: "Không tìm thấy danh mục để xóa." });
     }
 
-    res.status(200).json({ message: `✅ Xóa danh mục thành công!` });
+    res.status(200).json({ message: `Xóa danh mục thành công!` });
   });
 });
 

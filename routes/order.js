@@ -822,7 +822,7 @@ router.post("/create-vnpay", async (req, res) => {
       orderId,
     });
   } catch (err) {
-    console.error("❌ Lỗi tạo đơn hàng VNPAY:", err);
+    console.error("Lỗi tạo đơn hàng VNPAY:", err);
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -856,7 +856,7 @@ router.get("/vnpay-return", async (req, res) => {
       .json({ success: false, message: "Không tìm thấy đơn hàng." });
   }
 
-  console.log("✅ VNPAY xác thực thành công:", orderId);
+  console.log("VNPAY xác thực thành công:", orderId);
   res.send("Giao dịch hợp lệ");
 });
 

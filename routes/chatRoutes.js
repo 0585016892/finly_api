@@ -131,7 +131,7 @@ router.post("/upload-image", upload.single("image"), async (req, res) => {
 
     db.query(sqlUser, valuesUser, (err, result) => {
       if (err) {
-        console.error("❌ Lỗi khi lưu tin nhắn khách hàng:", err);
+        console.error("Lỗi khi lưu tin nhắn khách hàng:", err);
       }
     });
     // So sánh ảnh để tìm sản phẩm
@@ -195,7 +195,7 @@ router.post("/upload-image", upload.single("image"), async (req, res) => {
           botReply.image,
         ];
         db.query(sql, values, (err, result) => {
-          if (err) console.error("❌ Lỗi khi lưu botReply:", err);
+          if (err) console.error("Lỗi khi lưu botReply:", err);
         });
 
         // Gửi về client
@@ -207,7 +207,7 @@ router.post("/upload-image", upload.single("image"), async (req, res) => {
 
         console.log("🤖 Bot đã gửi gợi ý sản phẩm:", closest.name);
       } else {
-        console.log("❌ Không có sản phẩm đủ giống để gợi ý.");
+        console.log("Không có sản phẩm đủ giống để gợi ý.");
       }
     });
 

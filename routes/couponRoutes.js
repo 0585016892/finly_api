@@ -45,7 +45,7 @@ router.get("/", (req, res) => {
   // Truy vấn số lượng coupon
   db.query(sqlCount, (err, countResults) => {
     if (err) {
-      console.error("❌ Lỗi khi lấy số lượng coupon:", err);
+      console.error("Lỗi khi lấy số lượng coupon:", err);
       return res.status(500).json({ error: "Lỗi khi lấy tổng số coupon." });
     }
 
@@ -55,7 +55,7 @@ router.get("/", (req, res) => {
     // Truy vấn danh sách coupon
     db.query(sqlCoupons, (err, coupons) => {
       if (err) {
-        console.error("❌ Lỗi khi lấy coupon:", err);
+        console.error("Lỗi khi lấy coupon:", err);
         return res
           .status(500)
           .json({ error: "Lỗi khi lấy dữ liệu coupon từ cơ sở dữ liệu." });
@@ -118,7 +118,7 @@ router.post("/add", upload.none(), (req, res) => {
     (err, result) => {
       if (err) {
         // In chi tiết lỗi ra console
-        console.error("❌ Lỗi khi thêm coupon:", err);
+        console.error("Lỗi khi thêm coupon:", err);
 
         // Trả về thông tin chi tiết lỗi trong phản hồi
         return res.status(500).json({
@@ -129,7 +129,7 @@ router.post("/add", upload.none(), (req, res) => {
 
       // Phản hồi thành công
       res.status(201).json({
-        message: "✅ Coupon đã được thêm thành công!",
+        message: "Coupon đã được thêm thành công!",
         coupon_id: result.insertId,
       });
     }
@@ -205,7 +205,7 @@ router.delete("/delete/:id", (req, res) => {
 
   db.query("DELETE FROM coupons WHERE id = ?", [id], (err, result) => {
     if (err) return res.status(500).json({ error: "Xóa coupon thất bại" });
-    res.json({ message: "✅ Đã xóa mã giảm giá ! " });
+    res.json({ message: "Đã xóa mã giảm giá ! " });
   });
 });
 

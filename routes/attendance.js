@@ -209,13 +209,13 @@ router.post("/save", (req, res) => {
 
   db.query(sql, params, (err, result) => {
     if (err) {
-      console.error("❌ Lỗi SQL:", err);
+      console.error("Lỗi SQL:", err);
       return res
         .status(500)
         .json({ success: false, message: "Lỗi lưu lương", error: err.message });
     }
 
-    // ✅ Gửi email thông báo lương
+    // Gửi email thông báo lương
     const transporter = nodemailer.createTransport({
       host: process.env.EMAIL_HOST,
       port: Number(process.env.EMAIL_PORT),
@@ -255,7 +255,7 @@ router.post("/save", (req, res) => {
       },
       (mailErr) => {
         if (mailErr) {
-          console.error("❌ Gửi email lỗi:", mailErr);
+          console.error("Gửi email lỗi:", mailErr);
           return res.status(500).json({
             success: false,
             message: "Lưu lương OK nhưng gửi mail lỗi",

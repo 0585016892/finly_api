@@ -83,13 +83,13 @@ router.post("/import-excel", upload.single("file"), (req, res) => {
     const sql = "INSERT INTO chatbot_replies (keyword, reply) VALUES ?";
     db.query(sql, [values], (err, result) => {
       if (err) {
-        console.error("❌ Import lỗi:", err);
+        console.error("Import lỗi:", err);
         return res.status(500).json({ success: false, error: err.message });
       }
       res.json({ success: true, inserted: result.affectedRows });
     });
   } catch (err) {
-    console.error("❌ Lỗi xử lý file Excel:", err);
+    console.error("Lỗi xử lý file Excel:", err);
     res
       .status(500)
       .json({ success: false, error: "Định dạng file không hợp lệ" });
@@ -130,7 +130,7 @@ router.post("/suggest_gemini_a", async (req, res) => {
     const sql = "INSERT INTO chatbot_replies (keyword, reply) VALUES ?";
     db.query(sql, [values], (err, result) => {
       if (err) {
-        console.error("❌ Lỗi lưu DB:", err);
+        console.error("Lỗi lưu DB:", err);
         return res.status(500).json({ success: false, error: err.message });
       }
       res.json({
@@ -143,7 +143,7 @@ router.post("/suggest_gemini_a", async (req, res) => {
     console.error("Gemini error:", error);
     res.status(500).json({
       success: false,
-      message: "❌ Lỗi gọi Gemini",
+      message: "Lỗi gọi Gemini",
       error: error.message,
     });
   }

@@ -28,7 +28,7 @@ router.get("/", (req, res) => {
   // Truy vấn số lượng khách hàng
   db.query(sqlCount, (err, countResults) => {
     if (err) {
-      console.error("❌ Lỗi khi lấy số lượng khách hàng:", err);
+      console.error("Lỗi khi lấy số lượng khách hàng:", err);
       return res.status(500).json({ error: "Lỗi khi lấy tổng số khách hàng." });
     }
 
@@ -38,7 +38,7 @@ router.get("/", (req, res) => {
     // Truy vấn danh sách khách hàng
     db.query(sqlCustomers, (err, customers) => {
       if (err) {
-        console.error("❌ Lỗi khi lấy khách hàng:", err);
+        console.error("Lỗi khi lấy khách hàng:", err);
         return res
           .status(500)
           .json({ error: "Lỗi khi lấy dữ liệu khách hàng từ cơ sở dữ liệu." });
@@ -65,12 +65,12 @@ router.post("/add", (req, res) => {
   const sql = `INSERT INTO customers (full_name, email, phone, address) VALUES (?, ?, ?, ?)`;
   db.query(sql, [full_name, email, phone, address], (err, result) => {
     if (err) {
-      console.error("❌ Lỗi:", err);
+      console.error("Lỗi:", err);
       return res.status(500).json({ error: "Thêm khách hàng thất bại" });
     }
     res
       .status(201)
-      .json({ message: "✅ Thêm thành công", customer_id: result.insertId });
+      .json({ message: "Thêm thành công", customer_id: result.insertId });
   });
 });
 // Sửa khách hàng
@@ -86,7 +86,7 @@ router.put("/update/:id", (req, res) => {
     [full_name, email, phone, address, req.params.id],
     (err, result) => {
       if (err) return res.status(500).json({ error: "Cập nhật thất bại" });
-      res.json({ message: "✅ Cập nhật thành công" });
+      res.json({ message: "Cập nhật thành công" });
     }
   );
 });
@@ -97,7 +97,7 @@ router.delete("/delete/:id", (req, res) => {
     [req.params.id],
     (err, result) => {
       if (err) return res.status(500).json({ error: "Xoá thất bại" });
-      res.json({ message: "✅ Đã xoá khách hàng" });
+      res.json({ message: "Đã xoá khách hàng" });
     }
   );
 });
@@ -126,7 +126,7 @@ router.patch("/update_status/:id", (req, res) => {
     }
 
     res.json({
-      message: `✅ Cập nhật trạng thái khách hàng với ID ${id} thành ${status}`,
+      message: `Cập nhật trạng thái khách hàng với ID ${id} thành ${status}`,
     });
   });
 });

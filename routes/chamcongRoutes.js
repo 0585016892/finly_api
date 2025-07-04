@@ -16,7 +16,7 @@ router.get("/date/:date", (req, res) => {
 
   db.query(sql, [date], (err, rows) => {
     if (err) {
-      console.error("❌ Lỗi lấy chấm công theo ngày:", err);
+      console.error("Lỗi lấy chấm công theo ngày:", err);
       return res.status(500).json({ message: "Lỗi máy chủ" });
     }
 
@@ -38,7 +38,7 @@ router.get("/export/:month", (req, res) => {
 
   db.query(sql, [month], (err, rows) => {
     if (err) {
-      console.error("❌ Lỗi export chấm công:", err);
+      console.error("Lỗi export chấm công:", err);
       return res.status(500).json({ message: "Lỗi máy chủ khi export" });
     }
 
@@ -82,7 +82,7 @@ router.get("/export/:month", (req, res) => {
         res.end();
       })
       .catch((error) => {
-        console.error("❌ Lỗi khi ghi file Excel:", error);
+        console.error("Lỗi khi ghi file Excel:", error);
         res.status(500).json({ message: "Lỗi khi tạo file Excel" });
       });
   });

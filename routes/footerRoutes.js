@@ -103,7 +103,7 @@ router.post("/add", upload.none(), (req, res) => {
     [title, label, value, type, parent_id, status],
     (err, result) => {
       if (err) {
-        console.error("❌ Lỗi khi thêm danh mục:", err);
+        console.error("Lỗi khi thêm danh mục:", err);
         return res.status(500).json({
           error: "Đã xảy ra lỗi khi thêm danh mục vào cơ sở dữ liệu.",
         });
@@ -111,7 +111,7 @@ router.post("/add", upload.none(), (req, res) => {
 
       // Phản hồi thành công
       res.status(201).json({
-        message: "✅ Footer đã được thêm thành công!",
+        message: "Footer đã được thêm thành công!",
         category_id: result.insertId,
       });
     }
@@ -140,7 +140,7 @@ router.put("/update/:id", (req, res) => {
 
   db.query(sql, [title, label, status, id], (err, result) => {
     if (err) {
-      console.error("❌ Lỗi khi cập nhật:", err);
+      console.error("Lỗi khi cập nhật:", err);
       return res
         .status(500)
         .json({ error: "Lỗi khi cập nhật vào cơ sở dữ liệu." });
@@ -152,7 +152,7 @@ router.put("/update/:id", (req, res) => {
 
     // Trả về phản hồi thành công với thông báo chi tiết
     res.status(200).json({
-      message: "✅ Cập nhật thành công!",
+      message: "Cập nhật thành công!",
       updated_footer_id: id,
     });
   });
