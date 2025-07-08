@@ -125,7 +125,7 @@ router.get("/:id", (req, res) => {
 });
 
 
-router.get("/:slug", (req, res) => {
+router.get("/slug/:slug", (req, res) => {
   const slug = req.params.slug;
 
   const query = `
