@@ -28,15 +28,18 @@ router.use(express.urlencoded({ extended: true }));
 router.post("/", upload.array("images", 10), (req, res) => {
   const { title, slug, content, category, status } = req.body;
   const imageUrls = req.files.map((file) => `/uploads/posts/${file.filename}`);
+  const image = imageUrls[0] || null; // ảnh đại diện chính
 
   const insertPost = `
-    INSERT INTO posts (title, slug, content, category, status, created_at, updated_at,image)
-    VALUES (?, ?, ?, ?, ?, NOW(), NOW(),?)
+    INSERT INTO posts (title, slug, content, category, status, created_at, updated_at, image)
+    VALUES (?, ?, ?, ?, ?, NOW(), NOW(), ?)
   `;
-  db.query(insertPost, [title, slug, content, category, status,image], (err, result) => {
+
+  db.query(insertPost, [title, slug, content, category, status, image], (err, result) => {
     if (err) return res.status(500).json({ success: false, error: err });
 
     const postId = result.insertId;
+
     if (imageUrls.length > 0) {
       const insertImages = `INSERT INTO post_images (post_id, image_url) VALUES ?`;
       const imageData = imageUrls.map((url) => [postId, url]);
@@ -49,6 +52,7 @@ router.post("/", upload.array("images", 10), (req, res) => {
     }
   });
 });
+
 
 // Lấy danh sách bài viết (kèm ảnh)
 router.get("/", (req, res) => {
