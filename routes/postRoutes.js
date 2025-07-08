@@ -26,9 +26,14 @@ router.use(express.urlencoded({ extended: true }));
 
 // Thêm bài viết mới với nhiều ảnh
 router.post("/", upload.array("images", 10), (req, res) => {
+  // 👇 Thêm log để debug dữ liệu đầu vào
+  console.log("✅ req.body:", req.body);
+  console.log("✅ req.files:", req.files);
+
   const { title, slug, content, category, status } = req.body;
+
   const imageUrls = req.files.map((file) => `/uploads/posts/${file.filename}`);
-  const image = imageUrls[0] || null; // ảnh đại diện chính
+  const image = imageUrls[0] || null;
 
   const insertPost = `
     INSERT INTO posts (title, slug, content, category, status, created_at, updated_at, image)
@@ -36,19 +41,26 @@ router.post("/", upload.array("images", 10), (req, res) => {
   `;
 
   db.query(insertPost, [title, slug, content, category, status, image], (err, result) => {
-    if (err) return res.status(500).json({ success: false, error: err });
+    if (err) {
+      console.error("❌ Lỗi khi insert post:", err);
+      return res.status(500).json({ success: false, error: err });
+    }
 
     const postId = result.insertId;
 
     if (imageUrls.length > 0) {
       const insertImages = `INSERT INTO post_images (post_id, image_url) VALUES ?`;
       const imageData = imageUrls.map((url) => [postId, url]);
+
       db.query(insertImages, [imageData], (imgErr) => {
-        if (imgErr) return res.status(500).json({ success: false, imgErr });
+        if (imgErr) {
+          console.error("❌ Lỗi khi insert ảnh phụ:", imgErr);
+          return res.status(500).json({ success: false, imgErr });
+        }
         res.json({ success: true, message: "Thêm bài viết thành công" });
       });
     } else {
-      res.json({ success: true, message: "Thêm bài viết (không có ảnh) thành công" });
+      res.json({ success: true, message: "Thêm bài viết (không có ảnh phụ) thành công" });
     }
   });
 });
