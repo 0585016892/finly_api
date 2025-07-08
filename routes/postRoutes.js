@@ -25,45 +25,64 @@ router.use(express.json());
 router.use(express.urlencoded({ extended: true }));
 
 // Thêm bài viết mới với nhiều ảnh
-router.post("/", upload.array("images", 10), (req, res) => {
-  // 👇 Thêm log để debug dữ liệu đầu vào
-  console.log("✅ req.body:", req.body);
-  console.log("✅ req.files:", req.files);
+router.post(
+  "/",
+  upload.fields([
+    { name: "image", maxCount: 1 },     // ảnh chính
+    { name: "images", maxCount: 10 },   // ảnh phụ
+  ]),
+  (req, res) => {
+    const { title, slug, content, category, status } = req.body;
 
-  const { title, slug, content, category, status } = req.body;
+    console.log("🟢 req.body:", req.body);
+    console.log("🟢 req.files:", req.files);
 
-  const imageUrls = req.files.map((file) => `/uploads/posts/${file.filename}`);
-  const image = imageUrls[0] || null;
+    // ✅ Lấy ảnh đại diện (1 ảnh)
+    const image = req.files.image?.[0]?.filename
+      ? `/uploads/posts/${req.files.image[0].filename}`
+      : null;
 
-  const insertPost = `
-    INSERT INTO posts (title, slug, content, category, status, created_at, updated_at, image)
-    VALUES (?, ?, ?, ?, ?, NOW(), NOW(), ?)
-  `;
+    // ✅ Lấy danh sách ảnh phụ (mảng)
+    const imageUrls =
+      req.files.images?.map((file) => `/uploads/posts/${file.filename}`) || [];
 
-  db.query(insertPost, [title, slug, content, category, status, image], (err, result) => {
-    if (err) {
-      console.error("❌ Lỗi khi insert post:", err);
-      return res.status(500).json({ success: false, error: err });
-    }
+    // 👉 Lưu bài viết
+    const insertPost = `
+      INSERT INTO posts (title, slug, content, category, status, created_at, updated_at, image)
+      VALUES (?, ?, ?, ?, ?, NOW(), NOW(), ?)
+    `;
 
-    const postId = result.insertId;
-
-    if (imageUrls.length > 0) {
-      const insertImages = `INSERT INTO post_images (post_id, image_url) VALUES ?`;
-      const imageData = imageUrls.map((url) => [postId, url]);
-
-      db.query(insertImages, [imageData], (imgErr) => {
-        if (imgErr) {
-          console.error("❌ Lỗi khi insert ảnh phụ:", imgErr);
-          return res.status(500).json({ success: false, imgErr });
+    db.query(
+      insertPost,
+      [title, slug, content, category, status, image],
+      (err, result) => {
+        if (err) {
+          console.error("❌ SQL ERROR:", err);
+          return res.status(500).json({ success: false, error: err });
         }
-        res.json({ success: true, message: "Thêm bài viết thành công" });
-      });
-    } else {
-      res.json({ success: true, message: "Thêm bài viết (không có ảnh phụ) thành công" });
-    }
-  });
-});
+
+        const postId = result.insertId;
+
+        // 👉 Nếu có ảnh phụ thì lưu vào bảng post_images
+        if (imageUrls.length > 0) {
+          const insertImages = `INSERT INTO post_images (post_id, image_url) VALUES ?`;
+          const imageData = imageUrls.map((url) => [postId, url]);
+
+          db.query(insertImages, [imageData], (imgErr) => {
+            if (imgErr) {
+              console.error("❌ ERROR insert ảnh phụ:", imgErr);
+              return res.status(500).json({ success: false, imgErr });
+            }
+
+            return res.json({ success: true, message: "✔️ Thêm bài viết thành công" });
+          });
+        } else {
+          return res.json({ success: true, message: "✔️ Thêm bài viết không có ảnh phụ" });
+        }
+      }
+    );
+  }
+);
 
 
 // Lấy danh sách bài viết (kèm ảnh)
