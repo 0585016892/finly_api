@@ -125,6 +125,38 @@ router.get("/:id", (req, res) => {
 });
 
 
+router.get("/:slug", (req, res) => {
+  const slug = req.params.slug;
+
+  const query = `
+    SELECT p.*, GROUP_CONCAT(pi.image_url) AS images
+    FROM posts p
+    LEFT JOIN post_images pi ON pi.post_id = p.id
+    WHERE p.slug = ?
+    GROUP BY p.id
+  `;
+
+  db.query(query, [slug], (err, results) => {
+    if (err) {
+      console.error("❌ Lỗi khi lấy bài viết theo slug:", err);
+      return res.status(500).json({ success: false, message: "Lỗi server" });
+    }
+
+    if (results.length === 0) {
+      return res.status(404).json({ success: false, message: "Không tìm thấy bài viết" });
+    }
+
+    const post = results[0];
+    post.images = post.images ? post.images.split(",") : [];
+
+    res.json({
+      success: true,
+      post,
+    });
+  });
+});
+
+
 // Cập nhật bài viết
 router.put("/:id", upload.array("images", 10), (req, res) => {
   const postId = req.params.id;
