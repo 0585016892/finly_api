@@ -30,10 +30,10 @@ router.post("/", upload.array("images", 10), (req, res) => {
   const imageUrls = req.files.map((file) => `/uploads/posts/${file.filename}`);
 
   const insertPost = `
-    INSERT INTO posts (title, slug, content, category, status, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, NOW(), NOW())
+    INSERT INTO posts (title, slug, content, category, status, created_at, updated_at,image)
+    VALUES (?, ?, ?, ?, ?, NOW(), NOW(),?)
   `;
-  db.query(insertPost, [title, slug, content, category, status], (err, result) => {
+  db.query(insertPost, [title, slug, content, category, status,image], (err, result) => {
     if (err) return res.status(500).json({ success: false, error: err });
 
     const postId = result.insertId;
