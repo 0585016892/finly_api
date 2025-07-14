@@ -134,7 +134,19 @@ router.post("/add", (req, res) => {
     status,
     items,
   } = req.body;
-
+  console.log("🔍 Nhận đơn hàng:", {
+    customer_name,
+    customer_phone,
+    customer_email,
+    total,
+    discount,
+    shipping,
+    final_total,
+    payment_method,
+    status,
+    items,
+  });
+  
   const checkEmailSql = "SELECT * FROM customers WHERE email = ?";
   db.query(checkEmailSql, [customer_email], (emailErr, emailResult) => {
     if (emailErr) {
@@ -190,12 +202,32 @@ router.post("/add", (req, res) => {
             ],
             (orderErr, orderResult) => {
               if (orderErr) {
+                console.error("❌ Lỗi khi INSERT vào bảng orders:");
+                console.error("⛔ orderErr.message:", orderErr.message);
+                console.error("📦 orderErr.sqlMessage:", orderErr.sqlMessage);
+                console.error("🧾 SQL:", orderSql);
+                console.error("📨 Dữ liệu gửi vào:", {
+                  customer_name,
+                  customer_phone,
+                  customer_email,
+                  address,
+                  note,
+                  total,
+                  discount,
+                  shipping,
+                  final_total,
+                  payment_method,
+                  status,
+                  customerId,
+                  coupon_id: null
+                });
+              
                 return connection.rollback(() => {
                   connection.release();
                   res.status(500).json({
                     success: false,
                     message: "Lỗi lưu đơn hàng",
-                    error: orderErr.message,
+                    error: orderErr.sqlMessage || orderErr.message,
                   });
                 });
               }
@@ -213,8 +245,11 @@ router.post("/add", (req, res) => {
                     insertSql,
                     [orderId, product_id, quantity, price, size, color],
                     (itemErr) => {
-                      if (itemErr) return reject(itemErr);
-
+                      if (itemErr) {
+                        console.error("❌ Lỗi khi insert vào order_items:", itemErr.message);
+                        return reject(itemErr);
+                      }
+                      console.log("✅ Đã insert item, cập nhật tồn kho...");
                       const updateStockSql = `
                         UPDATE sanpham
                         SET quantity = quantity - ?
@@ -224,10 +259,14 @@ router.post("/add", (req, res) => {
                         updateStockSql,
                         [quantity, product_id, quantity],
                         (stockErr, stockResult) => {
-                          if (stockErr) return reject(stockErr);
+                          if (stockErr) {
+                            console.error("❌ Lỗi khi cập nhật tồn kho:", stockErr.message);
+                            return reject(stockErr);
+                          }
                           if (stockResult.affectedRows === 0) {
                             return reject(new Error(`Sản phẩm ID ${product_id} không đủ hàng tồn`));
                           }
+                          console.log("✅ Cập nhật tồn kho thành công:", stockResult);
                           resolve();
                         }
                       );

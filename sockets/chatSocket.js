@@ -1,4 +1,6 @@
 const db = require("../db");
+const Website_URL = process.env.URL_WEBSITE;
+const Web_URL = process.env.URL_WEB;
 
 // onlineUsers: userId -> Set of socketIds (để hỗ trợ nhiều thiết bị)
 const onlineUsers = new Map();
@@ -34,8 +36,8 @@ function chatSocket(io) {
         }
 
         const p = prods[0];
-        const link = `https://www.finlyshop.site/product/${p.slug}`;
-        const img = `https://finlyapi-production.up.railway.app/uploads/${p.image}`;
+        const link = `${Website_URL}/product/${p.slug}`;
+        const img = `${Web_URL}/uploads/${p.image}`;
         const reply = `✔️ Sản phẩm **${p.name}** hiện đang có hàng.\nXem tại: ${link}`;
         callback({ content: reply, image: img });
       });

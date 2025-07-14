@@ -70,7 +70,7 @@ router.post("/import-excel", upload.single("file"), (req, res) => {
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const data = xlsx.utils.sheet_to_json(sheet);
 
-    console.log("📄 Dữ liệu đọc từ Excel:", data); // ✅ debug
+    // console.log("📄 Dữ liệu đọc từ Excel:", data); // ✅ debug
 
     if (!data || !Array.isArray(data) || data.length === 0) {
       return res
@@ -78,9 +78,9 @@ router.post("/import-excel", upload.single("file"), (req, res) => {
         .json({ success: false, message: "File không chứa dữ liệu hợp lệ" });
     }
 
-    const values = data.map((row) => [row.keyword, row.reply]);
+    const values = data.map((row) => [row.chatbot_replies || row.keyword, row.reply]);
 
-    const sql = "INSERT INTO chatbot_replies (keyword, reply) VALUES ?";
+    const sql = "INSERT INTO chatbot_replies (chatbot_replies, reply) VALUES ?";
     db.query(sql, [values], (err, result) => {
       if (err) {
         console.error("Import lỗi:", err);
@@ -99,35 +99,39 @@ router.post("/import-excel", upload.single("file"), (req, res) => {
 router.post("/suggest_gemini_a", async (req, res) => {
   try {
     const { prompt } = req.body;
+    const actualPrompt = prompt || "Tạo các rule chatbot cho shop quần áo";
 
     const model = genAI.getGenerativeModel({
       model: "models/gemini-1.5-flash-001",
     });
-    const result = await model.generateContent(
-      prompt || "Tạo các rule chatbot cho shop quần áo"
-    );
+    const result = await model.generateContent(actualPrompt);
     const response = await result.response;
     const text = response.text();
 
+    console.log("Kết quả từ Gemini:\n", text);
+
     const lines = text
       .split("\n")
-      .map((line) => line.replace(/^[-–•🔹]*\s*/, "").trim()) // loại dấu đầu dòng
+      .map((line) => line.replace(/^[-–•🔹]*\s*/, "").trim())
       .filter((line) => line.length > 0);
 
-    // Gợi ý keyword theo từng nhóm
-    const keyword = prompt.toLowerCase().includes("giá")
+    if (!lines.length) {
+      return res.json({ success: false, message: "Không có phản hồi hợp lệ từ Gemini" });
+    }
+
+    const keyword = actualPrompt.toLowerCase().includes("giá")
       ? "giá"
-      : prompt.toLowerCase().includes("ship")
+      : actualPrompt.toLowerCase().includes("ship")
       ? "ship"
-      : prompt.toLowerCase().includes("đổi")
+      : actualPrompt.toLowerCase().includes("đổi")
       ? "đổi trả"
-      : prompt.toLowerCase().includes("bảo hành")
+      : actualPrompt.toLowerCase().includes("bảo hành")
       ? "bảo hành"
       : "chung";
 
     const values = lines.map((reply) => [keyword, reply]);
 
-    const sql = "INSERT INTO chatbot_replies (keyword, reply) VALUES ?";
+    const sql = "INSERT INTO chatbot_replies (chatbot_replies, reply) VALUES ?";
     db.query(sql, [values], (err, result) => {
       if (err) {
         console.error("Lỗi lưu DB:", err);
