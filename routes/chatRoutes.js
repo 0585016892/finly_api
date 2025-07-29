@@ -218,5 +218,31 @@ router.post("/upload-image", upload.single("image"), async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 });
+// Đánh dấu tất cả tin nhắn từ sender gửi đến receiver là đã đọc
+router.put("/messages/mark-read", (req, res) => {
+  const { sender, receiver } = req.body;
+
+  if (!sender || !receiver) {
+    return res.status(400).json({ message: "Thiếu sender hoặc receiver" });
+  }
+
+  const sql = `
+    UPDATE chat_messages
+    SET is_read = TRUE
+    WHERE sender = ? AND receiver = ? AND is_read = FALSE
+  `;
+
+  db.query(sql, [sender, receiver], (err, result) => {
+    if (err) {
+      console.error("Lỗi khi đánh dấu là đã đọc:", err);
+      return res.status(500).json({ message: "Lỗi máy chủ" });
+    }
+
+    res.json({
+      message: "Đã đánh dấu tin nhắn là đã đọc",
+      affectedRows: result.affectedRows,
+    });
+  });
+});
 
 module.exports = router;

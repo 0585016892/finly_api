@@ -9,12 +9,6 @@ const { initSocket } = require("./sockets/notiSocket");
 const { chatSocket, onlineUsers } = require("./sockets/chatSocket");
 const { initAttendanceSocket } = require("./sockets/attendanceSocket");
 const server = http.createServer(app);
-const io = new Server(server, {
-  cors: {
-    origin: "*",
-    methods: ["GET", "POST"],
-  },
-});
 // Middleware
 const allowedOrigins = [
   "http://localhost:3000",
@@ -23,6 +17,19 @@ const allowedOrigins = [
   "https://www.finlyshop.site", 
   "https://finlyshop.site"
 ];
+const io = new Server(server, {
+  cors: {
+   origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+    methods: ["GET", "POST"],
+  },
+});
+
 app.use(cors({
   origin: function (origin, callback) {
     if (!origin || allowedOrigins.includes(origin)) {

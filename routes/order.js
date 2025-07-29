@@ -316,65 +316,95 @@ router.post("/add", (req, res) => {
                         `  Thành tiền: ${(i.price * i.quantity).toLocaleString("vi-VN")}đ`
                     ).join("\n\n");
 
-                    const customerMail = {
-                      from: `"Finly" <${process.env.EMAIL_USER}>`,
-                      to: customer_email,
-                      subject: `Xác nhận đơn hàng #${orderId}`,
-                      text: `
-Xin chào ${customer_name},
+const customerMail = {
+  from: `"Finly" <${process.env.EMAIL_USER}>`,
+  to: customer_email,
+  subject: `Xác nhận đơn hàng #${orderId}`,
+  html: `
+    <div style="font-family: Arial, sans-serif; color: #333; padding: 20px; line-height: 1.6;">
+      <h2 style="color: #2E86C1;">Cảm ơn bạn đã đặt hàng tại <strong>Finly</strong>!</h2>
+      <p>Xin chào <strong>${customer_name}</strong>,</p>
 
-Cảm ơn bạn đã đặt hàng tại Finly. Đây là thông tin đơn hàng của bạn:
+      <p>Chúng tôi đã nhận được đơn hàng của bạn với thông tin như sau:</p>
 
-- Mã đơn hàng: #${orderId}
-- Họ tên: ${customer_name}
-- Điện thoại: ${customer_phone}
-- Địa chỉ: ${address}
-- Ghi chú: ${note}
-- Phương thức thanh toán: ${payment_method}
-- Tổng tiền: ${total.toLocaleString("vi-VN")} đ
-- Giảm giá: ${discount.toLocaleString("vi-VN")} đ
-- Phí vận chuyển: ${shipping.toLocaleString("vi-VN")} đ
-- Tổng thanh toán: ${final_total.toLocaleString("vi-VN")} đ
+      <h3 style="color: #1E8449;">🧾 Thông tin đơn hàng</h3>
+      <ul>
+        <li><strong>Mã đơn hàng:</strong> #${orderId}</li>
+        <li><strong>Họ tên:</strong> ${customer_name}</li>
+        <li><strong>Số điện thoại:</strong> ${customer_phone}</li>
+        <li><strong>Địa chỉ:</strong> ${address}</li>
+        <li><strong>Ghi chú:</strong> ${note || "Không có"}</li>
+        <li><strong>Phương thức thanh toán:</strong> ${payment_method}</li>
+      </ul>
 
-Chi tiết sản phẩm:
+      <h3 style="color: #D35400;">📦 Chi tiết sản phẩm</h3>
+      <pre style="background-color: #f9f9f9; padding: 10px; border-left: 3px solid #ccc;">${itemsList}</pre>
 
-${itemsList}
-${
-  plainPassword
-    ? `\n\nTài khoản của bạn đã được tạo tự động:\nEmail: ${customer_email}\nMật khẩu: ${plainPassword}`
-    : ""
-}
+      <h3 style="color: #8E44AD;">💰 Tóm tắt thanh toán</h3>
+      <ul>
+        <li><strong>Tổng tiền sản phẩm:</strong> ${total.toLocaleString("vi-VN")} đ</li>
+        <li><strong>Giảm giá:</strong> ${discount.toLocaleString("vi-VN")} đ</li>
+        <li><strong>Phí vận chuyển:</strong> ${shipping.toLocaleString("vi-VN")} đ</li>
+        <li><strong style="color:#C0392B;">Tổng thanh toán:</strong> <span style="color: #C0392B;">${final_total.toLocaleString("vi-VN")} đ</span></li>
+      </ul>
 
-Cảm ơn bạn đã mua sắm tại Finly. Chúng tôi sẽ xử lý đơn hàng ngay lập tức.
+      ${
+        plainPassword
+          ? `<h3 style="color: #2E86C1;">🔐 Tài khoản của bạn</h3>
+            <p>Hệ thống đã tạo tài khoản tự động cho bạn:</p>
+            <ul>
+              <li><strong>Email:</strong> ${customer_email}</li>
+              <li><strong>Mật khẩu:</strong> ${plainPassword}</li>
+            </ul>`
+          : ""
+      }
 
-Trân trọng,
-Finly Team`.trim(),
-                    };
+      <p>Chúng tôi sẽ sớm xử lý và giao hàng đến bạn.</p>
 
-                    const merchantMail = {
-                      from: `"Finly" <${process.env.EMAIL_USER}>`,
-                      to: "tranhung6829@gmail.com",
-                      subject: `[MỚI] Đơn hàng #${orderId} từ ${customer_name}`,
-                      text: `
-Bạn có một đơn hàng mới:
+      <p style="margin-top: 30px;">Trân trọng,<br><strong>Finly Team</strong></p>
+    </div>
+  `.trim()
+};
 
-- Mã đơn hàng: #${orderId}
-- Tên KH: ${customer_name}
-- SĐT: ${customer_phone}
-- Địa chỉ: ${address}
-- Ghi chú: ${note}
-- Phương thức thanh toán: ${payment_method}
-- Tổng tiền: ${total.toLocaleString("vi-VN")} đ
-- Giảm giá: ${discount.toLocaleString("vi-VN")} đ
-- Vận chuyển: ${shipping.toLocaleString("vi-VN")} đ
-- Tổng thanh toán: ${final_total.toLocaleString("vi-VN")} đ
 
-Chi tiết:
+const merchantMail = {
+  from: `"Finly" <${process.env.EMAIL_USER}>`,
+  to: "tranhung6829@gmail.com",
+  subject: `[MỚI] Đơn hàng #${orderId} từ ${customer_name}`,
+  html: `
+    <div style="font-family: Arial, sans-serif; line-height: 1.6; max-width: 600px; margin: auto; padding: 20px; background: #f9f9f9; border-radius: 8px; border: 1px solid #ddd;">
+      <h2 style="color: #2c3e50;">🛒 Thông báo đơn hàng mới từ <span style="color: #1abc9c;">Finly</span></h2>
+      <p><strong>Mã đơn hàng:</strong> <span style="color: #e74c3c;">#${orderId}</span></p>
+      <p><strong>Khách hàng:</strong> ${customer_name}</p>
+      <p><strong>Điện thoại:</strong> ${customer_phone}</p>
+      <p><strong>Địa chỉ:</strong> ${address}</p>
+      <p><strong>Ghi chú:</strong> ${note || "Không có"}</p>
+      <p><strong>Phương thức thanh toán:</strong> ${payment_method}</p>
 
-${itemsList}
+      <hr style="margin: 20px 0;">
 
-Finly Team`.trim(),
-                    };
+      <h3 style="color: #34495e;">💰 Thông tin thanh toán:</h3>
+      <ul style="list-style: none; padding: 0;">
+        <li><strong>Tổng tiền:</strong> ${total.toLocaleString("vi-VN")} đ</li>
+        <li><strong>Giảm giá:</strong> ${discount.toLocaleString("vi-VN")} đ</li>
+        <li><strong>Phí vận chuyển:</strong> ${shipping.toLocaleString("vi-VN")} đ</li>
+        <li><strong style="color: #e67e22;">Tổng thanh toán:</strong> <span style="color: #e74c3c;">${final_total.toLocaleString("vi-VN")} đ</span></li>
+      </ul>
+
+      <hr style="margin: 20px 0;">
+
+      <h3 style="color: #34495e;">📦 Chi tiết sản phẩm:</h3>
+      <div style="background: #fff; border: 1px solid #ccc; padding: 10px; border-radius: 5px; white-space: pre-line;">
+        ${itemsList}
+      </div>
+
+      <p style="margin-top: 30px;">🕐 <em>Vui lòng xử lý đơn hàng này sớm nhất có thể.</em></p>
+
+      <p style="color: #999; font-size: 13px;">Finly Team<br/>https://finly.vn</p>
+    </div>
+  `
+};
+
 
                     transporter.sendMail(customerMail, () => {
                       transporter.sendMail(merchantMail, () => {

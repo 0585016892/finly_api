@@ -227,24 +227,58 @@ router.post("/save", (req, res) => {
       tls: { rejectUnauthorized: false },
     });
 
-    const content = `
-      Xin chào ${full_name},
+ const content = `
+  <div style="font-family: Arial, sans-serif; color: #333;">
+    <p>Xin chào <strong>${full_name}</strong>,</p>
 
-      Đây là bảng lương của bạn trong tháng ${month}/${year}:
+    <p>Đây là bảng lương của bạn trong tháng <strong>${month}/${year}</strong>:</p>
 
-      - Ngày công: ${soNgayCong} ngày
-      - Tổng giờ làm: ${tongGio} giờ
-      - Số lần đi trễ: ${soLanTre}
-      - Số lần về sớm: ${soLanVeSom}
-      - Giờ tăng ca: ${tongGioTangCa} giờ
+    <table cellpadding="10" cellspacing="0" border="1" style="border-collapse: collapse; width: 100%; max-width: 600px;">
+      <thead style="background-color: #f2f2f2;">
+        <tr>
+          <th style="text-align: left;">Mục</th>
+          <th style="text-align: right;">Giá trị</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Ngày công</td>
+          <td style="text-align: right;">${soNgayCong} ngày</td>
+        </tr>
+        <tr>
+          <td>Tổng giờ làm</td>
+          <td style="text-align: right;">${tongGio} giờ</td>
+        </tr>
+        <tr>
+          <td>Số lần đi trễ</td>
+          <td style="text-align: right;">${soLanTre}</td>
+        </tr>
+        <tr>
+          <td>Số lần về sớm</td>
+          <td style="text-align: right;">${soLanVeSom}</td>
+        </tr>
+        <tr>
+          <td>Giờ tăng ca</td>
+          <td style="text-align: right;">${tongGioTangCa} giờ</td>
+        </tr>
+        <tr>
+          <td><strong>Lương chính</strong></td>
+          <td style="text-align: right;"><strong>${Number(luongNgay).toLocaleString("vi-VN")} đ</strong></td>
+        </tr>
+        <tr>
+          <td><strong>Lương tăng ca</strong></td>
+          <td style="text-align: right;"><strong>${Number(luongTangCa).toLocaleString("vi-VN")} đ</strong></td>
+        </tr>
+        <tr style="background-color: #dff0d8;">
+          <td><strong>👉 Tổng lương</strong></td>
+          <td style="text-align: right;"><strong>${Number(tongLuong).toLocaleString("vi-VN")} đ</strong></td>
+        </tr>
+      </tbody>
+    </table>
 
-      - Lương chính: ${Number(luongNgay).toLocaleString("vi-VN")} đ
-      - Lương tăng ca: ${Number(luongTangCa).toLocaleString("vi-VN")} đ
-      - 👉 Tổng lương: ${Number(tongLuong).toLocaleString("vi-VN")} đ
-
-      Trân trọng,
-      Phòng Nhân sự
-    `.trim();
+    <p style="margin-top: 20px;">Trân trọng,<br><strong>Phòng Nhân sự</strong></p>
+  </div>
+`.trim();
 
     transporter.sendMail(
       {

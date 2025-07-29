@@ -13,14 +13,18 @@ function initSocket(io) {
 }
 
 function notifyNewOrder(order) {
+  console.log("Gọi notifyNewOrder với order:", order); // log kiểm tra
+
   if (!ioInstance) {
     console.error("Socket.io chưa được khởi tạo!");
     return;
   }
+
   ioInstance.emit("newOrderNotification", {
     message: `Đơn hàng #${order.id} mới được tạo!`,
     orderId: order.id,
   });
 }
+
 
 module.exports = { initSocket, notifyNewOrder };
